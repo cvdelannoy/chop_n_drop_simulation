@@ -9,7 +9,7 @@ parser.add_argument('--in-pkl',type=str, required=True)
 parser.add_argument('--out-pkl', type=str, required=True)
 parser.add_argument('--resolution', type=float, default=40000,
                     help='Minimum weight difference that can still be recognized')
-parser.add_argument('--scrambled', action='store_true',
+parser.add_argument('--scrambled', type=bool, default=False,
                     help='Do not assume sub-sequences are split off in the correct order')
 args = parser.parse_args()
 

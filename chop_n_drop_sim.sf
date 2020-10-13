@@ -5,6 +5,7 @@ out_dir = "{{ out_dir }}"
 enzyme = "{{ enzyme }}"
 fasta_dir = "{{ fasta_dir }}"
 min_res, max_res = int({{ min_res }}), int({{ max_res }})
+scrambled = str({{ scrambled }})
 
 res_range = range(min_res, max_res, (max_res - min_res) // 20)
 
@@ -28,7 +29,7 @@ rule compare:
         out_pkl=f'{out_dir}comparisons/comparison_{{ "{{res}}" }}.pkl'
     shell:
         """
-        python {__location__}/compare.py --resolution {wildcards.res} --in-pkl {input.in_pkl} --out-pkl {output.out_pkl}
+        python {__location__}/compare.py --resolution {wildcards.res} --in-pkl {input.in_pkl} --out-pkl {output.out_pkl} --scrambled {scrambled}
         """
 
 rule plot:

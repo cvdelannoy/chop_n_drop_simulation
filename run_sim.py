@@ -28,6 +28,7 @@ sf_txt = Template(sf_template_txt, ).render(
     out_dir=out_dir,
     enzyme=args.enzyme,
     fasta_dir=args.fasta_dir,
+    scrambled=args.scrambled,
     min_res=args.res_range[0], max_res=args.res_range[1]
 )
 
