@@ -1,0 +1,44 @@
+
+
+__location__ = "{{ __location__ }}"
+out_dir = "{{ out_dir }}"
+enzyme = "{{ enzyme }}"
+fasta_dir = "{{ fasta_dir }}"
+min_res, max_res = {{ min_res }}, {{ max_res }}
+
+res_range = range(min_res, max_res, (max_res - min_res) // 20)
+
+rule target:
+    input:
+        res_svg=f'{out_dir}plots/uniqueness_vs_resolution.svg'
+
+
+rule digest:
+    output:
+        digest_pkl=f'{out_dir}digested_products.pkl'
+    shell:
+        """
+        python {__location__}/digest.py --in-dir {fasta_dir} --out-pkl {output.digest_pkl} --enzyme {enzyme}        
+        """
+
+rule compare:
+    input:
+        in_pkl=f'{out_dir}digested_products.pkl'
+    output:
+        out_pkl=f'{out_dir}comparisons/comparison_{{ "{{res}}" }}.pkl'
+    shell:
+        """
+        python {__location__}/compare.py --resolution {wildcards.res} --in-pkl {input.in_pkl} --out-pkl {output.out_pkl}
+        """
+
+rule plot:
+    input:
+        in_pkl=expand(f'{out_dir}comparisons/comparison_{{ "{{res}}" }}.pkl', res=res_range)
+    params:
+        top_n=3,
+    output:
+        res_svg=f'{out_dir}plots/uniqueness_vs_resolution.svg'
+    shell:
+         """
+         python {__location__}/plot.py --in-pkl {input.in_pkl} --top-n {params.top_n} --out-dir {out_dir}/plots
+         """
