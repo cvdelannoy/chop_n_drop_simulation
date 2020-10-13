@@ -4,7 +4,7 @@ __location__ = "{{ __location__ }}"
 out_dir = "{{ out_dir }}"
 enzyme = "{{ enzyme }}"
 fasta_dir = "{{ fasta_dir }}"
-min_res, max_res = {{ min_res }}, {{ max_res }}
+min_res, max_res = int({{ min_res }}), int({{ max_res }})
 
 res_range = range(min_res, max_res, (max_res - min_res) // 20)
 
