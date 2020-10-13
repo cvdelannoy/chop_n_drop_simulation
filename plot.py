@@ -1,6 +1,7 @@
 import argparse
 import seaborn as sns
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 from helpers import parse_output_dir
 
@@ -24,6 +25,9 @@ parser.add_argument('--out-dir', type=str)
 
 args = parser.parse_args()
 out_dir = parse_output_dir(args.out_dir)
+out_dir_top95 = parse_output_dir(out_dir+'top95')
+out_dir_all = parse_output_dir(out_dir+'all')
+
 
 compare_df = pd.concat([pd.read_pickle(fn) for fn in args.in_pkl])
 
@@ -32,31 +36,41 @@ compare_df.loc[compare_df.nb_similar_fingerprints < args.top_n, 'similar_cls'] =
 compare_df.loc[compare_df.nb_similar_fingerprints == 0, 'similar_cls'] = 'unique'
 lab_order = [f'more than {args.top_n}', f'up to {args.top_n}', 'unique']
 
+summary_df = pd.DataFrame(columns=lab_order, index=compare_df.resolution.unique())
+
 for res, cdf in compare_df.groupby('resolution'):
     # --- nb fragments ---
     fig = plot_barhist(cdf, 'nb_fragments')
     fig.gca().set_xlabel('# fragments'); fig.gca().set_ylabel('fraction')
-    plt.savefig(f'{out_dir}uniqueness_vs_nb_fragments_res{res}_all.svg', dpi=400)
+    plt.savefig(f'{out_dir_all}uniqueness_vs_nb_fragments_res{res}_all.svg', dpi=400)
     plt.close(fig)
 
     fig = plot_barhist(cdf, 'nb_fragments', top_pct=0.95)
     fig.gca().set_xlabel('# fragments'); fig.gca().set_ylabel('fraction')
-    plt.savefig(f'{out_dir}uniqueness_vs_nb_fragments_res{res}_top95.svg', dpi=400)
+    plt.savefig(f'{out_dir_top95}uniqueness_vs_nb_fragments_res{res}_top95.svg', dpi=400)
     plt.close(fig)
 
     # --- sequence length ---
     fig = plot_barhist(cdf, 'seq_len')
     fig.gca().set_xlabel('sequence length'); fig.gca().set_ylabel('fraction')
-    plt.savefig(f'{out_dir}uniqueness_vs_seqlen_res{res}_all.svg', dpi=400)
+    plt.savefig(f'{out_dir_all}uniqueness_vs_seqlen_res{res}_all.svg', dpi=400)
     plt.close(fig)
 
     fig = plot_barhist(cdf, 'seq_len', top_pct=0.95)
     fig.gca().set_xlabel('sequence length'); fig.gca().set_ylabel('fraction')
-    plt.savefig(f'{out_dir}uniqueness_vs_seqlen_res{res}_top95.svg', dpi=400)
+    plt.savefig(f'{out_dir_top95}uniqueness_vs_seqlen_res{res}_top95.svg', dpi=400)
     plt.close(fig)
 
+    # --- update summary df ---
+    summary_df.loc[res, :] = cdf.similar_cls.value_counts() / len(cdf)
+
 # --- resolution ---
-fig = plot_barhist(compare_df, 'resolution')
+resolution_list = compare_df.resolution.unique()
+resolution_list.sort()
+binwidth = np.mean(resolution_list[1:] - resolution_list[:-1])
+fig = plot_barhist(compare_df, 'resolution', binwidth=binwidth)
 fig.gca().set_xlabel('resolution'); fig.gca().set_ylabel('fraction')
 plt.savefig(f'{out_dir}uniqueness_vs_resolution.svg', dpi=400)
 plt.close(fig)
+
+summary_df.to_csv(f'{out_dir}uniqueness_vs_resolution.csv', header=True, index=True)
