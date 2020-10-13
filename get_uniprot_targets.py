@@ -61,19 +61,19 @@ if len_range[1] < len_range[0]:
     raise ValueError('In supplied length range, minimum must be smaller than maximum')
 
 # --- query uniprot db on disease ---
-query = f'proteome:UP000005640 '
-if not args.include_unreviewed: query += 'reviewed:yes '
+query = f'organism:"Homo sapiens (Human) [9606]" AND proteome:UP000005640'
+if not args.include_unreviewed: query += ' AND reviewed:yes'
 if args.include_unreviewed:
     query += ''
 if args.disease:
-    query += f'annotation:(type:disease "{args.disease}")'
+    query += f' AND annotation:(type:disease "{args.disease}")'
 elif args.keyword:
-    query = f'keyword: "{args.keyword}"'
+    query += f' AND keyword: "{args.keyword}"'
 elif args.type:
-    query = f'annotation:(type:{args.type})'
+    query += f' AND annotation:(type:{args.type})'
 request_params={
     'query': query,
-    'include': 'yes',
+    'include': 'no',
     'format': 'fasta'
 }
 
@@ -81,6 +81,7 @@ req_obj = requests.get("http://www.uniprot.org/uniprot/", params=request_params)
 if not req_obj.ok:
     raise ValueError(f'Request to uniprot db failed, status: {req_obj.status_code}')
 
+# len(req_obj.content.decode('utf-8').split('>')[1:])
 for fit, fasta_str in enumerate(req_obj.content.decode('utf-8').split('>')[1:]):
     try:
         if '|' in fasta_str:
