@@ -21,6 +21,8 @@ df_list = []
 for nb_seqs in mw_dict:
     ss_cols = [f'ss{i}' for i in range(nb_seqs)]
     cdf = mw_dict[nb_seqs].copy()
+    if args.scrambled:  # assume we have no information on fragment order --> sort by MW
+        cdf.loc[:, ss_cols] = np.sort(cdf.loc[:, ss_cols].to_numpy(), axis=1)
     cdf.loc[:, 'nb_fragments'] = nb_seqs
     cdf.loc[:, 'nb_similar_fingerprints'] = 0
     for ti, tup in cdf.iterrows():
