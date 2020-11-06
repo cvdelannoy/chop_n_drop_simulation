@@ -1,0 +1,65 @@
+
+
+__location__ = "{{ __location__ }}"
+out_dir = "{{ out_dir }}"
+enzyme = "{{ enzyme }}"
+fasta_dir = "{{ fasta_dir }}"
+dynamic_range = "{{ min_mw }} {{ max_mw }}"
+resolution = f"{{ resolution }}"
+scrambled = str({{ scrambled }})
+min_charge = "{{ min_charge }}"
+ph = "{{ ph }}"
+
+efficiency = "{{ efficiency }}"
+specificity = "{{ specificity }}"
+repeats = "{{ repeats }}"
+
+
+rule target:
+    input:
+        res_svg=f'{out_dir}plots/uniqueness_vs_resolution.svg'
+
+
+rule digest_database:
+    output:
+        digest_pkl=f'{out_dir}digested_products_database.pkl'
+    shell:
+        """
+        python {__location__}/digest.py --in-dir {fasta_dir} --out-pkl {output.digest_pkl} --enzyme {enzyme} \
+                --dynamic-range {dynamic_range} --ph {ph} --min-charge {min_charge} \
+                --specificity {specificity} --efficiency {efficiency} --repeats {repeats}
+        """
+
+rule digest_target:
+    output:
+        digest_pkl=f'{out_dir}digested_products_targets.pkl'
+    shell:
+        """
+        python {__location__}/digest.py --in-dir {fasta_dir} --out-pkl {output.digest_pkl} --enzyme {enzyme} \
+                --dynamic-range {dynamic_range} --ph {ph} --min-charge {min_charge} \
+                --specificity {specificity} --efficiency {efficiency} --repeats 1
+        """
+
+rule classify:
+    input:
+        digest_database=f'{out_dir}digested_products_database.pkl',
+        digest_targets=f'{out_dir}digested_products_targets.pkl'
+    output:
+        pkl=f'{out_dir}classified.pkl'
+    threads: {{ cores }}
+    shell:
+        """
+        python {__location__}/classify.py --db {input.digest_database} --targets {input.digest_targets} \
+                --out-pkl {output.pkl} --cores {threads}
+        """
+
+
+rule plot:
+    input:
+        in_pkl=f'{out_dir}classified.pkl'
+    output:
+        res_svg=f'{out_dir}plots/uniqueness_vs_resolution.svg'
+    shell:
+         """
+         python {__location__}/plot.py --in-pkl {input.in_pkl} --top-n {params.top_n} --out-dir {out_dir}/plots
+         """

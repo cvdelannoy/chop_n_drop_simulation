@@ -22,7 +22,7 @@ rule digest:
         digest_pkl=f'{out_dir}digested_products.pkl'
     shell:
         """
-        python {__location__}/digest.py --in-dir {fasta_dir} --out-pkl {output.digest_pkl} --enzyme {enzyme}  --dynamic-range {dynamic_range} --ph {ph} --min-charge {min_charge} 
+        python {__location__}/digest.py --in-dir {fasta_dir} --out-pkl {output.digest_pkl} --enzyme {enzyme}  --dynamic-range {dynamic_range} --ph {ph} --min-charge {min_charge}
         """
 
 rule compare:
