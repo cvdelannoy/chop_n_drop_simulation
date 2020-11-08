@@ -75,7 +75,8 @@ else:
         min_mw=args.dynamic_range[0], max_mw=args.dynamic_range[1],
         min_charge=args.min_charge, ph=args.ph,
         resolution=args.resolution,
-        efficiency=args.efficiency, specificity=args.specificity, repeats=args.repeats
+        efficiency=args.efficiency, specificity=args.specificity, repeats=args.repeats,
+        cores=args.cores
     )
 
 sf_fn = f'{out_dir}chop_n_drop_pipeline.sf'

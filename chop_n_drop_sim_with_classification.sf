@@ -17,7 +17,7 @@ repeats = "{{ repeats }}"
 
 rule target:
     input:
-        res_svg=f'{out_dir}plots/uniqueness_vs_resolution.svg'
+        res_svg=f'{out_dir}plots/nfrag_vs_cls_top95.svg'
 
 
 rule digest_database:
@@ -27,7 +27,7 @@ rule digest_database:
         """
         python {__location__}/digest.py --in-dir {fasta_dir} --out-pkl {output.digest_pkl} --enzyme {enzyme} \
                 --dynamic-range {dynamic_range} --ph {ph} --min-charge {min_charge} \
-                --specificity {specificity} --efficiency {efficiency} --repeats {repeats}
+                --resolution {resolution} --specificity {specificity} --efficiency {efficiency} --repeats {repeats}
         """
 
 rule digest_target:
@@ -37,7 +37,17 @@ rule digest_target:
         """
         python {__location__}/digest.py --in-dir {fasta_dir} --out-pkl {output.digest_pkl} --enzyme {enzyme} \
                 --dynamic-range {dynamic_range} --ph {ph} --min-charge {min_charge} \
-                --specificity {specificity} --efficiency {efficiency} --repeats 1
+                --resolution {resolution} --specificity {specificity} --efficiency {efficiency} --repeats 1
+        """
+
+rule digest_perfect:
+    output:
+        digest_pkl=f'{out_dir}digested_products_perfect.pkl'
+    shell:
+        """
+        python {__location__}/digest.py --in-dir {fasta_dir} --out-pkl {output.digest_pkl} --enzyme {enzyme} \
+                --dynamic-range {dynamic_range} --ph {ph} --min-charge {min_charge} \
+                --resolution {resolution} --specificity 1.0 --efficiency 1.0 --repeats 1
         """
 
 rule classify:
@@ -56,10 +66,12 @@ rule classify:
 
 rule plot:
     input:
-        in_pkl=f'{out_dir}classified.pkl'
+        in_pkl=f'{out_dir}classified.pkl',
+        perfect_pkl = f'{out_dir}digested_products_perfect.pkl'
     output:
-        res_svg=f'{out_dir}plots/uniqueness_vs_resolution.svg'
+        res_svg=f'{out_dir}plots/nfrag_vs_cls_top95.svg'
     shell:
          """
-         python {__location__}/plot.py --in-pkl {input.in_pkl} --top-n {params.top_n} --out-dir {out_dir}/plots
+         python {__location__}/plot_classification_results.py --classify-pkl {input.in_pkl} --targets-pkl \
+                {input.perfect_pkl} --out-dir {out_dir}/plots
          """
