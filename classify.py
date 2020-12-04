@@ -1,8 +1,14 @@
 import argparse, os, sys
 import numpy as np
 import pandas as pd
-from tslearn.metrics import dtw, dtw_path
-import pickle
+from tslearn.metrics import dtw
+# from scipy.spatial.distance import euclidean
+# from fastdtw import fastdtw
+try:
+    import pickle5 as pickle
+except:
+    import pickle
+from datetime import datetime
 from itertools import chain
 import multiprocessing as mp
 
@@ -11,12 +17,17 @@ def classify_fingerprints(target_dict, db, cdf):
     rd_out = {}
     for tid in target_dict:
         fp = target_dict[tid]
+        t1 = datetime.now()
         for nbf, cidx in cdf.index.to_list():
+            # cdf.loc[(nbf, cidx), 'dtw_score'] = fastdtw(fp, db[nbf].loc[cidx, [f'ss{i}' for i in range(nbf)]], dist=euclidean)[0]
             cdf.loc[(nbf, cidx), 'dtw_score'] = dtw(fp, db[nbf].loc[cidx, [f'ss{i}' for i in range(nbf)]])
+        t = datetime.now() - t1
+        print(t)
         top_idx = cdf.sort_values(['dtw_score']).iloc[:5, :].index
         top_ids = [db[i1].loc[i2, 'seq_id'] for i1, i2, in top_idx]
         rd_out[tid] = top_ids
     return rd_out
+
 
 def classify_fingerprints_parallel(target_dict, db, cdf, out_queue):
     out_dict = classify_fingerprints(target_dict, db, cdf)
@@ -57,7 +68,9 @@ elif args.cores > 1:
     target_list = [{target_idx_list[pid]: target_dict[target_idx_list[pid]] for pid in pid_sublist} for pid_sublist in pid_list]
     parallel_results_list = []
     out_queue = mp.Queue()
-    processes = [mp.Process(target=classify_fingerprints_parallel, args=(target_list[tidx], db, comparison_df.copy(), out_queue)) for tidx in range(args.cores)]
+    processes = [mp.Process(target=classify_fingerprints_parallel,
+                            args=(target_list[tidx], db, comparison_df.copy(), out_queue))
+                 for tidx in range(args.cores)]
     for p in processes:
         p.start()
     while True:

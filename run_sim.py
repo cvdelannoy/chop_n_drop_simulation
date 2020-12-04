@@ -44,13 +44,16 @@ parser.add_argument('--repeats', type=int, default=20,
 # --- misc ---
 parser.add_argument('--cores', type=int, default=4,
                     help='Max number of cores to engage simultaneously. [default: 4]')
-parser.add_argument('--uniqueness-mode', action='store_true',
-                    help='Only assess uniqueness of fingerprints. Cannot take efficiency/specificity into account.')
+parser.add_argument('--mode', type=str, options=['uniqueness', 'perfect_db', 'unknown_sample'], default='perfect_db',
+                    help='Type of analysis to perform, must be one of the following: '
+                         '[uniqueness]: assume perfect fingerprints and assess whether fingerprints are unique'
+                         '[perfect_db]: error-less digestion for comparison database, errors according to parameters for test data'
+                         '[unknown_sample]: repeat db generation several times with errors, compare test fingerprints against it')
 args = parser.parse_args()
 
 out_dir = parse_output_dir(args.out_dir)
 
-if args.uniqueness_mode:
+if args.mode == 'uniqueness':
     # Option 1: simulate fingerprints once and evaluate uniqueness
     with open(f'{__location__}/chop_n_drop_sim.sf', 'r') as fh: sf_template_txt = fh.read()
     sf_txt = Template(sf_template_txt, ).render(
@@ -63,8 +66,8 @@ if args.uniqueness_mode:
         min_charge=args.min_charge, ph=args.ph,
         min_res=args.res_range[0], max_res=args.res_range[1]
     )
-else:
-    # Option 2: simulate repeated digetions for nb_repeats times, classification and evaluation
+elif args.mode == 'unknown_sample':
+    # Option 2: simulate repeated digestions for nb_repeats times, classification and evaluation
     with open(f'{__location__}/chop_n_drop_sim_with_classification.sf', 'r') as fh: sf_template_txt = fh.read()
     sf_txt = Template(sf_template_txt, ).render(
         __location__=__location__,
@@ -78,6 +81,23 @@ else:
         efficiency=args.efficiency, specificity=args.specificity, repeats=args.repeats,
         cores=args.cores
     )
+elif args.mode == 'perfect_db':
+    # Option 3: simulate perfect fingerprints once for db, then classification/evaluation against that
+    with open(f'{__location__}/chop_n_drop_sim_with_classification_v2.sf', 'r') as fh: sf_template_txt = fh.read()
+    sf_txt = Template(sf_template_txt, ).render(
+        __location__=__location__,
+        out_dir=out_dir,
+        enzyme=args.enzyme,
+        fasta_dir=args.fasta_dir,
+        scrambled=args.scrambled,
+        min_mw=args.dynamic_range[0], max_mw=args.dynamic_range[1],
+        min_charge=args.min_charge, ph=args.ph,
+        resolution=args.resolution,
+        efficiency=args.efficiency, specificity=args.specificity,
+        cores=args.cores
+    )
+else:
+    raise ValueError(f'--mode option "{args.mode}" is unknown')
 
 sf_fn = f'{out_dir}chop_n_drop_pipeline.sf'
 with open(sf_fn, 'w') as fh: fh.write(sf_txt)

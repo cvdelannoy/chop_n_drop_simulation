@@ -7,7 +7,9 @@ import pickle
 
 from helpers import parse_output_dir
 
-lab_order = ['top1', 'top3', 'misclassified']
+lab_order = ['misclassified', 'top3', 'top1']
+# palette = ['red', 'yellow', 'blue']
+palette = ['#fbb4ae', '#fed9a6', '#ccebc5']
 
 def plot_barhist(cdf, feat, top_pct=None, binwidth=None):
     fig = plt.figure(figsize=(10, 5))
@@ -15,7 +17,7 @@ def plot_barhist(cdf, feat, top_pct=None, binwidth=None):
     if top_pct:
         cdf = cdf.sort_values([feat]).head(int(len(cdf) * top_pct))
     sns.histplot(cdf, x=feat, hue='pred', stat='probability', multiple='fill',
-                 hue_order=lab_order, binwidth=binwidth, element='step', linewidth=0, palette=['red', 'yellow', 'blue'],
+                 hue_order=lab_order, binwidth=binwidth, element='step', linewidth=0, palette=palette,
                  ax=ax)
     return fig
 

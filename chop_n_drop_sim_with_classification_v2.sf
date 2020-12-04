@@ -12,23 +12,11 @@ ph = "{{ ph }}"
 
 efficiency = "{{ efficiency }}"
 specificity = "{{ specificity }}"
-repeats = "{{ repeats }}"
 
 
 rule target:
     input:
         res_svg=f'{out_dir}plots/nfrag_vs_cls_top95.svg'
-
-
-rule digest_database:
-    output:
-        digest_pkl=f'{out_dir}digested_products_database.pkl'
-    shell:
-        """
-        python {__location__}/digest.py --in-dir {fasta_dir} --out-pkl {output.digest_pkl} --enzyme {enzyme} \
-                --dynamic-range {dynamic_range} --ph {ph} --min-charge {min_charge} \
-                --resolution {resolution} --specificity {specificity} --efficiency {efficiency} --repeats {repeats}
-        """
 
 rule digest_target:
     output:
@@ -52,7 +40,7 @@ rule digest_perfect:
 
 rule classify:
     input:
-        digest_database=f'{out_dir}digested_products_database.pkl',
+        digest_database=f'{out_dir}digested_products_perfect.pkl',
         digest_targets=f'{out_dir}digested_products_targets.pkl'
     output:
         pkl=f'{out_dir}classified.pkl'
@@ -62,7 +50,6 @@ rule classify:
         python {__location__}/classify.py --db {input.digest_database} --targets {input.digest_targets} \
                 --out-pkl {output.pkl} --cores {threads}
         """
-
 
 rule plot:
     input:
