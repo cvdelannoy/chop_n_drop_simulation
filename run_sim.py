@@ -44,7 +44,7 @@ parser.add_argument('--repeats', type=int, default=20,
 # --- misc ---
 parser.add_argument('--cores', type=int, default=4,
                     help='Max number of cores to engage simultaneously. [default: 4]')
-parser.add_argument('--mode', type=str, options=['uniqueness', 'perfect_db', 'unknown_sample'], default='perfect_db',
+parser.add_argument('--mode', type=str, choices=['uniqueness', 'perfect_db', 'unknown_sample'], default='perfect_db',
                     help='Type of analysis to perform, must be one of the following: '
                          '[uniqueness]: assume perfect fingerprints and assess whether fingerprints are unique'
                          '[perfect_db]: error-less digestion for comparison database, errors according to parameters for test data'

@@ -4,6 +4,7 @@ import pandas as pd
 from tslearn.metrics import dtw
 # from scipy.spatial.distance import euclidean
 # from fastdtw import fastdtw
+from soma import soma
 try:
     import pickle5 as pickle
 except:
@@ -17,13 +18,11 @@ def classify_fingerprints(target_dict, db, cdf):
     rd_out = {}
     for tid in target_dict:
         fp = target_dict[tid]
-        t1 = datetime.now()
         for nbf, cidx in cdf.index.to_list():
             # cdf.loc[(nbf, cidx), 'dtw_score'] = fastdtw(fp, db[nbf].loc[cidx, [f'ss{i}' for i in range(nbf)]], dist=euclidean)[0]
-            cdf.loc[(nbf, cidx), 'dtw_score'] = dtw(fp, db[nbf].loc[cidx, [f'ss{i}' for i in range(nbf)]])
-        t = datetime.now() - t1
-        print(t)
-        top_idx = cdf.sort_values(['dtw_score']).iloc[:5, :].index
+            # cdf.loc[(nbf, cidx), 'dtw_score'] = dtw(fp, db[nbf].loc[cidx, [f'ss{i}' for i in range(nbf)]])
+            cdf.loc[(nbf, cidx), 'dtw_score'] = soma(fp, db[nbf].loc[cidx, [f'ss{i}' for i in range(nbf)]].to_numpy().astype(np.float), 4.0, 4.0)
+        top_idx = cdf.sort_values(['dtw_score'], ascending=False).iloc[:5, :].index
         top_ids = [db[i1].loc[i2, 'seq_id'] for i1, i2, in top_idx]
         rd_out[tid] = top_ids
     return rd_out

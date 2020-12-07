@@ -2,8 +2,6 @@ from numba import njit
 import numpy
 
 def soma(s1, s2, cr, sd):
-    # s1 = to_time_series(s1)
-    # s2 = to_time_series(s2)
     return njit_soma(s1, s2, cr, sd)
 
 def to_time_series(ts):
@@ -27,14 +25,23 @@ def njit_accumulated_matrix_soma(s1, s2, cr, sd):
     cum_sum = numpy.full((l1 + 1, l2 + 1), -1 * numpy.inf)
     cum_sum[0, 0] = 0.
 
-    for i in range(l1):
-        for j in range(l2):
+    # option 1: assuming db fingerprint can have no missing restrictions
+    for i in range(1, l1+1):
+        for j in range(1, l2+1):
             bm = -1 * numpy.inf
-            for k in range(0, i+1):
-                for l in range(0, j+1):
-                    candidate = soma_dist(s1[k:i+1], s2[l:j+1], cr, sd) + cum_sum[k, l]
+            for l in range(max(0, j-3), j):
+                    candidate = soma_dist(s1[i-1:i], s2[l:j], cr, sd) + cum_sum[i-1, l]
                     bm = max(candidate, bm)
-            cum_sum[i + 1, j + 1] = bm
+
+    # option 2: assuming db fingerprint can have missing restrictions
+    # for i in range(1, l1 + 1):
+    #     for j in range(1, l2 + 1):
+    #         bm = -1 * numpy.inf
+    #         for l in range(max(0, j - 5), j):
+    #             for k in range(max(0, i - 5), i):
+    #                 candidate = soma_dist(s1[k:i], s2[l:j], cr, sd) + cum_sum[k, l]
+    #                 bm = max(candidate, bm)
+            cum_sum[i, j] = bm
     return cum_sum[1:, 1:]
 
 
@@ -42,7 +49,8 @@ def njit_accumulated_matrix_soma(s1, s2, cr, sd):
 def soma_dist(s1, s2, cr, sd):
     p1 = -1 * cr * abs(s1.shape[0] - s2.shape[0])
     fd = fast_sum(s1) - fast_sum(s2)
-    p1 -= fd * fd / (sd * sd)
+    sd2 = s2.shape[0] * sd
+    p1 -= fd * fd / (sd2 * sd2)
     return p1
 
 

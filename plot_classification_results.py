@@ -3,7 +3,10 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-import pickle
+try:
+    import pickle5 as pickle
+except:
+    import pickle
 
 from helpers import parse_output_dir
 
