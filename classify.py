@@ -14,22 +14,33 @@ from itertools import chain
 import multiprocessing as mp
 
 
-def classify_fingerprints(target_dict, db, cdf):
+def classify_fingerprints(target_dict, db, cdf, algo):
     rd_out = {}
     for tid in target_dict:
         fp = target_dict[tid]
         for nbf, cidx in cdf.index.to_list():
-            # cdf.loc[(nbf, cidx), 'dtw_score'] = fastdtw(fp, db[nbf].loc[cidx, [f'ss{i}' for i in range(nbf)]], dist=euclidean)[0]
-            # cdf.loc[(nbf, cidx), 'dtw_score'] = dtw(fp, db[nbf].loc[cidx, [f'ss{i}' for i in range(nbf)]])
-            cdf.loc[(nbf, cidx), 'dtw_score'] = soma(fp, db[nbf].loc[cidx, [f'ss{i}' for i in range(nbf)]].to_numpy().astype(np.float), 4.0, 4.0)
+            if algo == 'soma':
+                cdf.loc[(nbf, cidx), 'dtw_score'] = soma(fp, db[nbf].loc[cidx, [f'ss{i}' for i in range(nbf)]].to_numpy().astype(np.float), 4.0, 4.0)
+            elif algo == 'dtw':
+                cdf.loc[(nbf, cidx), 'dtw_score'] = dtw(fp, db[nbf].loc[cidx, [f'ss{i}' for i in range(nbf)]]) * -1
+            else:
+                raise ValueError(f'{algo} is not a valid algorithm name')
         top_idx = cdf.sort_values(['dtw_score'], ascending=False).iloc[:5, :].index
         top_ids = [db[i1].loc[i2, 'seq_id'] for i1, i2, in top_idx]
         rd_out[tid] = top_ids
+        # if tid != top_ids[0]:
+        #     tt = db[top_idx[0][0]].loc[top_idx[0][1]]
+        #     bp = tt.loc[[f'ss{i}' for i in range(top_idx[0][0])]].to_numpy().astype(np.float)
+        #     # get real fingerprint
+        #     full_db = pd.concat([db[di] for di in db])
+        #     rp = full_db.query(f'seq_id == "{tid}"')
+        #     tfp = rp[[f'ss{i}' for i in range(len(fp))]].to_numpy().squeeze()
+        #     cp=1
     return rd_out
 
 
-def classify_fingerprints_parallel(target_dict, db, cdf, out_queue):
-    out_dict = classify_fingerprints(target_dict, db, cdf)
+def classify_fingerprints_parallel(target_dict, db, cdf, algo, out_queue):
+    out_dict = classify_fingerprints(target_dict, db, cdf, algo=algo)
     out_queue.put(out_dict)
 
 
@@ -37,6 +48,8 @@ parser = argparse.ArgumentParser(description='Return most likely classification 
 parser.add_argument('--db', type=str, required=True)
 parser.add_argument('--targets', type=str, required=True)
 parser.add_argument('--out-pkl', type=str, required=True)
+parser.add_argument('--algorithm', type=str, choices=['dtw', 'soma'], default='soma',
+                    help='Define which method to use to determine distance between fingerprints [default:soma]')
 parser.add_argument('--cores', type=int, default=4)
 
 args = parser.parse_args()
@@ -60,7 +73,7 @@ for nbf in targets:
 
 # compare
 if args.cores == 1:
-    results_dict = classify_fingerprints(target_dict, db, comparison_df.copy())
+    results_dict = classify_fingerprints(target_dict, db, comparison_df.copy(), args.algorithm)
 elif args.cores > 1:
     pid_list = np.array_split(np.arange(len(target_dict)), args.cores)
     target_idx_list = list(target_dict)
@@ -68,7 +81,7 @@ elif args.cores > 1:
     parallel_results_list = []
     out_queue = mp.Queue()
     processes = [mp.Process(target=classify_fingerprints_parallel,
-                            args=(target_list[tidx], db, comparison_df.copy(), out_queue))
+                            args=(target_list[tidx], db, comparison_df.copy(), args.algorithm, out_queue))
                  for tidx in range(args.cores)]
     for p in processes:
         p.start()

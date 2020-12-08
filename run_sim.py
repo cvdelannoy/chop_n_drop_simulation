@@ -1,4 +1,5 @@
 import os, sys
+from shutil import copyfile
 import argparse
 from jinja2 import Template
 from helpers import parse_output_dir
@@ -12,6 +13,8 @@ parser = argparse.ArgumentParser(description='Run full chop n drop simulation.')
 # --- IO ---
 parser.add_argument('--out-dir', type=str, required=True)
 parser.add_argument('--fasta-dir', type=str, required=False)
+parser.add_argument('--db', type=str, required=False,
+                    help='Use provided pickled db instead of creating one with given fastas')
 
 # --- enzyme properties ---
 parser.add_argument('--enzyme', type=str, default='trypsin',
@@ -32,6 +35,8 @@ parser.add_argument('--dynamic-range', type=float, nargs=2, default=[0.0, 10E99]
                          '[default: 0 10E99]')
 parser.add_argument('--min-charge', type=float, default=-100,
                     help='Minimum charge in units at which fragments are still passing the pore. [default: -100]')
+parser.add_argument('--catch-rate', type=float, default=1.0,
+                    help='Alternative to ph/min charge; define what fraction of fragments are caught [default: 1.0]')
 
 # --- target(altering) properties ---
 parser.add_argument('--ph', type=float, default=7.0,
@@ -42,6 +47,8 @@ parser.add_argument('--repeats', type=int, default=20,
                     help='Number of times digestion is repeated. [default: 20]')
 
 # --- misc ---
+parser.add_argument('--algorithm', type=str, choices=['dtw', 'soma'], default='soma',
+                    help='Define which method to use to determine distance between fingerprints [default:soma]')
 parser.add_argument('--cores', type=int, default=4,
                     help='Max number of cores to engage simultaneously. [default: 4]')
 parser.add_argument('--mode', type=str, choices=['uniqueness', 'perfect_db', 'unknown_sample'], default='perfect_db',
@@ -52,6 +59,8 @@ parser.add_argument('--mode', type=str, choices=['uniqueness', 'perfect_db', 'un
 args = parser.parse_args()
 
 out_dir = parse_output_dir(args.out_dir)
+if args.db:
+    copyfile(args.db, f'{out_dir}digested_products_database.pkl')
 
 if args.mode == 'uniqueness':
     # Option 1: simulate fingerprints once and evaluate uniqueness
@@ -79,7 +88,8 @@ elif args.mode == 'unknown_sample':
         min_charge=args.min_charge, ph=args.ph,
         resolution=args.resolution,
         efficiency=args.efficiency, specificity=args.specificity, repeats=args.repeats,
-        cores=args.cores
+        cores=args.cores,
+        algo=args.algorithm
     )
 elif args.mode == 'perfect_db':
     # Option 3: simulate perfect fingerprints once for db, then classification/evaluation against that
@@ -94,7 +104,9 @@ elif args.mode == 'perfect_db':
         min_charge=args.min_charge, ph=args.ph,
         resolution=args.resolution,
         efficiency=args.efficiency, specificity=args.specificity,
-        cores=args.cores
+        catch_rate=args.catch_rate,
+        cores=args.cores,
+        algorithm=args.algorithm
     )
 else:
     raise ValueError(f'--mode option "{args.mode}" is unknown')

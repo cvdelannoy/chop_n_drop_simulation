@@ -9,7 +9,8 @@ resolution = f"{{ resolution }}"
 scrambled = str({{ scrambled }})
 min_charge = "{{ min_charge }}"
 ph = "{{ ph }}"
-
+catch_rate = "{{ catch_rate }}"
+algorithm = "{{ algorithm }}"
 efficiency = "{{ efficiency }}"
 specificity = "{{ specificity }}"
 
@@ -25,22 +26,23 @@ rule digest_target:
         """
         python {__location__}/digest.py --in-dir {fasta_dir} --out-pkl {output.digest_pkl} --enzyme {enzyme} \
                 --dynamic-range {dynamic_range} --ph {ph} --min-charge {min_charge} \
+                --catch-rate {catch_rate} \
                 --resolution {resolution} --specificity {specificity} --efficiency {efficiency} --repeats 1
         """
 
 rule digest_perfect:
     output:
-        digest_pkl=f'{out_dir}digested_products_perfect.pkl'
+        digest_pkl=f'{out_dir}digested_products_database.pkl'
     shell:
         """
         python {__location__}/digest.py --in-dir {fasta_dir} --out-pkl {output.digest_pkl} --enzyme {enzyme} \
                 --dynamic-range {dynamic_range} --ph {ph} --min-charge {min_charge} \
-                --resolution {resolution} --specificity 1.0 --efficiency 1.0 --repeats 1
+                --resolution 0.0 --specificity 1.0 --efficiency 1.0 --repeats 1
         """
 
 rule classify:
     input:
-        digest_database=f'{out_dir}digested_products_perfect.pkl',
+        digest_database=f'{out_dir}digested_products_database.pkl',
         digest_targets=f'{out_dir}digested_products_targets.pkl'
     output:
         pkl=f'{out_dir}classified.pkl'
@@ -48,13 +50,13 @@ rule classify:
     shell:
         """
         python {__location__}/classify.py --db {input.digest_database} --targets {input.digest_targets} \
-                --out-pkl {output.pkl} --cores {threads}
+                --out-pkl {output.pkl} --cores {threads} --algorithm {algorithm}
         """
 
 rule plot:
     input:
         in_pkl=f'{out_dir}classified.pkl',
-        perfect_pkl = f'{out_dir}digested_products_perfect.pkl'
+        perfect_pkl = f'{out_dir}digested_products_database.pkl'
     output:
         res_svg=f'{out_dir}plots/nfrag_vs_cls_top95.svg'
     shell:

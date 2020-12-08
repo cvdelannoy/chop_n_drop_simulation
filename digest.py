@@ -28,6 +28,8 @@ parser.add_argument('--efficiency', type=float, default=1.0,
                     help='Define what fraction of sites is actually cleaved. [default: 1.0]')
 parser.add_argument('--specificity', type=float, default=1.0,
                     help='1 - probability that cleavage occurs after any residue at random. [default: 1.0]')  # todo: implementation not done
+parser.add_argument('--catch-rate', type=float, default=1.0,
+                    help='Fraction of fragments that is registered, at random [default: 1.0]')
 parser.add_argument('--repeats', type=int, default=1,
                     help='Number of times to repeat digestion. Note: only makes sense if efficiency/specificity/resolution is set, '
                          'otherwise fingerprints will end up the same each time. [default: 1]')
@@ -59,6 +61,8 @@ for fai, fa_fn in enumerate(fasta_list):
         #     seqs_list = [seq[cleave_idx[ii-1]:i] for ii, i in enumerate(cleave_idx)][1:]
         #     sseq_list = list(chain.from_iterable([np.array(digest_re.findall(ss)) for ss in seqs_list]))
 
+        sseq_list_copy = sseq_list.copy()
+
         # Fuse fractions at random
         if args.efficiency < 1.0 and len(sseq_list) > 1:
             sseq_fusions = [sseq_list[0]]
@@ -78,8 +82,12 @@ for fai, fa_fn in enumerate(fasta_list):
         sseq_df.mw += np.random.normal(0, args.resolution, len(sseq_df))
 
         # Remove peptides if too light or too negatively charged, set max weight
-        sseq_df.query(f'mw > {args.dynamic_range[0]} and charge > {args.min_charge}', inplace=True)
+        sseq_df.query(f'mw > {args.dynamic_range[0]}', inplace=True)
+        # sseq_df.query(f'mw > {args.dynamic_range[0]} and charge > {args.min_charge}', inplace=True)  # todo test
         sseq_df.loc[sseq_df.mw > args.dynamic_range[1], 'mw'] = args.dynamic_range[1]
+
+        # Apply random catch rate
+        sseq_df = sseq_df.iloc[np.random.rand(len(sseq_df)) < args.catch_rate]
 
         nb_seqs = len(sseq_df)
         entry_dict = {f'ss{i}': ss for i, ss in enumerate(sseq_df.mw)}
