@@ -47,7 +47,12 @@ for pid in classify_dict:
     if classify_dict[pid][0] == pid: pred = 'top1'
     elif pid in classify_dict[pid][:3]: pred = 'top3'
     else: pred = 'misclassified'
-    result_df.loc[pid, :] = target_df.loc[pid].to_list() + [pred]
+    try:
+        result_df.loc[pid, :] = target_df.loc[pid].to_list() + [pred]
+    except:
+        print(target_df.loc[pid])
+        # print(target_dict)
+        raise
 result_df.to_csv(f'{out_dir}classification_eval.csv')
 
 # --- plot entire set ---

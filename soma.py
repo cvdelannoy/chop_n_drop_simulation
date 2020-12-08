@@ -1,13 +1,13 @@
 from numba import njit
 import numpy
 
-@njit(nogil=True)
+# @njit(nogil=True)
 def soma(s1, s2, cr, sd):
     cum_sum = njit_accumulated_matrix_soma(s1, s2, cr, sd)
     return cum_sum[-1, -1]
 
 
-@njit()
+# @njit()
 def njit_accumulated_matrix_soma(s1, s2, cr, sd, s2_len_variable=True):
     l1 = s1.shape[0]
     l2 = s2.shape[0]
@@ -37,7 +37,7 @@ def njit_accumulated_matrix_soma(s1, s2, cr, sd, s2_len_variable=True):
     return cum_sum[1:, 1:]
 
 
-@njit()
+# @njit()
 def soma_dist(s1, s2, cr, sd):
     dist = -1 * cr * abs(s1.shape[0] - s2.shape[0])
     dist -= njit_dtw(s1, s2)
@@ -49,7 +49,7 @@ def soma_dist(s1, s2, cr, sd):
     # return p1
 
 
-@njit(fastmath=True)
+# @njit(fastmath=True)
 def fast_sum(s):
     acc = 0.
     for x in s: acc += x
@@ -57,12 +57,12 @@ def fast_sum(s):
 
 
 # --- dtw implementation, directly from tslearn ---
-@njit()
+# @njit()
 def njit_dtw(s1, s2):
     cum_sum = njit_accumulated_matrix(s1, s2)
     return numpy.sqrt(cum_sum[-1, -1])
 
-@njit()
+# @njit()
 def njit_accumulated_matrix(s1, s2):
     l1 = s1.shape[0]
     l2 = s2.shape[0]
@@ -77,7 +77,7 @@ def njit_accumulated_matrix(s1, s2):
                                          cum_sum[i, j])
     return cum_sum[1:, 1:]
 
-@njit()
+# @njit()
 def _local_squared_dist(x, y):
     diff = x - y
     dist = diff * diff
@@ -85,12 +85,12 @@ def _local_squared_dist(x, y):
 
 
 # --- dtw_skip implementation ---
-@njit(nogil=True)
+# @njit(nogil=True)
 def dtw_skip(s1, s2):
     cum_sum = njit_accumulated_matrix_skip(s1, s2)
     return numpy.sqrt(cum_sum[-1, -1])
 
-@njit()
+# @njit()
 def njit_accumulated_matrix_skip(s1, s2):
     l1 = s1.shape[0]
     l2 = s2.shape[0]
@@ -106,7 +106,7 @@ def njit_accumulated_matrix_skip(s1, s2):
                                         _local_squared_dist_skip(s1[i], ss2) + cum_sum[i+1, j])
     return cum_sum[1:, 1:]
 
-@njit()
+# @njit()
 def _local_squared_dist_skip(x, y):
     diff = x - y
     dist = diff * diff

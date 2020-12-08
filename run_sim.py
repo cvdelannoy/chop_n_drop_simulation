@@ -21,6 +21,8 @@ parser.add_argument('--enzyme', type=str, default='trypsin',
                     help='Enzyme with which to digest. [default: trypsin]')
 parser.add_argument('--efficiency', type=float, default=1.0,
                     help='Cleaving efficiency of enzyme. [default: 1.0]')
+parser.add_argument('--efficiency-range', type=float, nargs=2, default=[0.5, 1.0],
+                    help='Lower and upper limit of efficiencies if a ranged mode is used [default: 0.5, 1.0]')
 parser.add_argument('--specificity', type=float, default=1.0,
                     help='Cleaving specificity of enzyme, 1 - the probability of cleaving at a random position [default: 1.0]')
 
@@ -51,7 +53,8 @@ parser.add_argument('--algorithm', type=str, choices=['dtw', 'soma'], default='s
                     help='Define which method to use to determine distance between fingerprints [default:soma]')
 parser.add_argument('--cores', type=int, default=4,
                     help='Max number of cores to engage simultaneously. [default: 4]')
-parser.add_argument('--mode', type=str, choices=['uniqueness', 'perfect_db', 'unknown_sample'], default='perfect_db',
+parser.add_argument('--mode', type=str, choices=['uniqueness', 'perfect_db', 'unknown_sample', 'perfect_db_range'],
+                    default='perfect_db',
                     help='Type of analysis to perform, must be one of the following: '
                          '[uniqueness]: assume perfect fingerprints and assess whether fingerprints are unique'
                          '[perfect_db]: error-less digestion for comparison database, errors according to parameters for test data'
@@ -107,6 +110,25 @@ elif args.mode == 'perfect_db':
         catch_rate=args.catch_rate,
         cores=args.cores,
         algorithm=args.algorithm
+    )
+elif args.mode == 'perfect_db_range':
+    # Option 4: as option 3, but run for range of resolutions and efficiencies
+    with open(f'{__location__}/chop_n_drop_sim_with_classification_v2_ranges.sf', 'r') as fh: sf_template_txt = fh.read()
+    sf_txt = Template(sf_template_txt, ).render(
+        __location__=__location__,
+        out_dir=out_dir,
+        enzyme=args.enzyme,
+        fasta_dir=args.fasta_dir,
+        scrambled=args.scrambled,
+        min_mw=args.dynamic_range[0], max_mw=args.dynamic_range[1],
+        min_charge=args.min_charge, ph=args.ph,
+        resolution=args.resolution,
+        efficiency=args.efficiency, specificity=args.specificity,
+        catch_rate=args.catch_rate,
+        cores=args.cores,
+        algorithm=args.algorithm,
+        min_res=args.res_range[0], max_res=args.res_range[1],
+        min_eff=args.efficiency_range[0], max_eff=args.efficiency_range[1]
     )
 else:
     raise ValueError(f'--mode option "{args.mode}" is unknown')
