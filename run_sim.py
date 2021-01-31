@@ -35,10 +35,14 @@ parser.add_argument('--dynamic-range', type=float, nargs=2, default=[0.0, 10E99]
                     help='Lower and upper limit between which resolution is valid. Below lower limit,'
                          'particle is not registered, above higher limit it is registered at maximum weight.'
                          '[default: 0 10E99]')
+parser.add_argument('--nb-range-steps', type=int, default=5,
+                    help='Number of steps to make in allowed range for res, catch rate and efficiency')
 parser.add_argument('--min-charge', type=float, default=-100,
                     help='Minimum charge in units at which fragments are still passing the pore. [default: -100]')
 parser.add_argument('--catch-rate', type=float, default=1.0,
                     help='Alternative to ph/min charge; define what fraction of fragments are caught [default: 1.0]')
+parser.add_argument('--cr-range', type=float, nargs=2, default=[0.8, 1.0],
+                    help='Range between which to pick catch rates [default: 0.8 1.0].')
 
 # --- target(altering) properties ---
 parser.add_argument('--ph', type=float, default=7.0,
@@ -47,6 +51,8 @@ parser.add_argument('--scrambled', action='store_true',
                     help='Ignore order of fragments in constructing fingerprint.')
 parser.add_argument('--repeats', type=int, default=20,
                     help='Number of times digestion is repeated. [default: 20]')
+parser.add_argument('--subsampling-fraction', default=0.01, type=float,
+                    help='When subsampling sequences for targets db, define what fraction is taken [default: 0.01]')
 
 # --- misc ---
 parser.add_argument('--algorithm', type=str, choices=['dtw', 'soma'], default='soma',
@@ -59,6 +65,7 @@ parser.add_argument('--mode', type=str, choices=['uniqueness', 'perfect_db', 'un
                          '[uniqueness]: assume perfect fingerprints and assess whether fingerprints are unique'
                          '[perfect_db]: error-less digestion for comparison database, errors according to parameters for test data'
                          '[unknown_sample]: repeat db generation several times with errors, compare test fingerprints against it')
+parser.add_argument('--dry-run', action='store_true')
 args = parser.parse_args()
 
 out_dir = parse_output_dir(args.out_dir)
@@ -119,8 +126,12 @@ elif args.mode == 'perfect_db_range':
         out_dir=out_dir,
         enzyme=args.enzyme,
         fasta_dir=args.fasta_dir,
+        repeats=args.repeats,
+        subsampling_fraction=args.subsampling_fraction,
+        nb_range_steps=args.nb_range_steps,
         scrambled=args.scrambled,
         min_mw=args.dynamic_range[0], max_mw=args.dynamic_range[1],
+        min_cr=args.cr_range[0], max_cr=args.cr_range[1],
         min_charge=args.min_charge, ph=args.ph,
         resolution=args.resolution,
         efficiency=args.efficiency, specificity=args.specificity,
@@ -136,4 +147,4 @@ else:
 sf_fn = f'{out_dir}chop_n_drop_pipeline.sf'
 with open(sf_fn, 'w') as fh: fh.write(sf_txt)
 
-sm.snakemake(sf_fn, cores=args.cores)
+sm.snakemake(sf_fn, cores=args.cores, dryrun=args.dry_run, verbose=False)

@@ -18,6 +18,9 @@ def classify_fingerprints(target_dict, db, cdf, algo):
     rd_out = {}
     for tid in target_dict:
         fp = target_dict[tid]
+        if not len(fp):
+            rd_out[tid] = []
+            continue
         for nbf, cidx in cdf.index.to_list():
             if algo == 'soma':
                 cdf.loc[(nbf, cidx), 'dtw_score'] = soma(fp, db[nbf].loc[cidx, [f'ss{i}' for i in range(nbf)]].to_numpy().astype(np.float), 4.0, 4.0)

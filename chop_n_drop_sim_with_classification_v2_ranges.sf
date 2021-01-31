@@ -8,71 +8,88 @@ dynamic_range = "{{ min_mw }} {{ max_mw }}"
 scrambled = str({{ scrambled }})
 min_charge = "{{ min_charge }}"
 ph = "{{ ph }}"
-catch_rate = "{{ catch_rate }}"
 algorithm = "{{ algorithm }}"
 specificity = "{{ specificity }}"
+subsampling_fraction = float({{ subsampling_fraction }})
 
 # Variable parameters
 resolution = "{{ resolution }}"
 min_res, max_res = int({{ min_res }}), int({{ max_res }})
-res_range = list(range(min_res, max_res, (max_res - min_res) // 20))
+res_range = list(range(min_res, max_res, (max_res - min_res) // {{ nb_range_steps }}))
 
 efficiency = "{{ efficiency }}"
-eff_range = np.linspace({{ min_eff }}, {{ max_eff }}, 20)
+eff_range = np.linspace({{ min_eff }}, {{ max_eff }}, {{ nb_range_steps }})
+
+catch_rate = "{{ catch_rate }}"
+cr_range = np.linspace({{ min_cr }}, {{ max_cr }}, {{ nb_range_steps }})
+
+idx_range = np.arange(int({{ repeats }}))
 
 rule target:
     input:
         res_svg=f'{out_dir}meta_plots/accuracy_vs_resolution.svg',
+        cr_svg=f'{out_dir}meta_plots/accuracy_vs_catch_rate.svg',
         eff_svg=f'{out_dir}meta_plots/accuracy_vs_efficiency.svg'
-
 
 rule resolution_plot:
     input:
-        in_csv=expand(f'{out_dir}plots_res_{{ "{{res}}" }}/classification_eval.csv', res=res_range)
+        in_csv=expand(f'{out_dir}resolution{{ "{{res}}" }}_catch_rate{catch_rate}_efficiency{efficiency}/plots/{{ "{{idx}}" }}/classification_eval.csv', res=res_range, idx=idx_range)
     params:
-        range=' '.join([str(rr) for rr in res_range]),
         param_name='resolution'
     output:
-        res_svg=f'{out_dir}meta_plots/accuracy_vs_resolution.svg'
+        eff_svg=f'{out_dir}meta_plots/accuracy_vs_resolution.svg'
     shell:
          """
-         python {__location__}/plot_range.py --in-csv {input.in_csv} --out-dir {out_dir}/meta_plots \
-            --param-name {params.param_name} --range {params.range}
+         python {__location__}/plot_range.py --in-csv {input.in_csv} --out-svg {output.eff_svg} \
+            --param-name {params.param_name}
          """
+
+rule catch_rate_plot:
+    input:
+        in_csv=expand(f'{out_dir}resolution{resolution}_catch_rate{{ "{{cr}}" }}_efficiency{efficiency}/plots/{{ "{{idx}}" }}/classification_eval.csv', cr=cr_range, idx=idx_range)
+    params:
+        param_name='catch_rate'
+    output:
+        eff_svg=f'{out_dir}meta_plots/accuracy_vs_catch_rate.svg'
+    shell:
+         """
+         python {__location__}/plot_range.py --in-csv {input.in_csv} --out-svg {output.eff_svg} \
+            --param-name {params.param_name}
+         """
+
 
 rule efficiency_plot:
     input:
-        in_csv=expand(f'{out_dir}plots_eff_{{ "{{eff}}" }}/classification_eval.csv', eff=eff_range)
+        in_csv=expand(f'{out_dir}resolution{resolution}_catch_rate{catch_rate}_efficiency{{ "{{eff}}" }}/plots/{{ "{{idx}}" }}/classification_eval.csv', eff=eff_range, idx=idx_range)
     params:
-        range=' '.join([str(rr) for rr in eff_range]),
         param_name='efficiency'
     output:
         eff_svg=f'{out_dir}meta_plots/accuracy_vs_efficiency.svg'
     shell:
          """
-         python {__location__}/plot_range.py --in-csv {input.in_csv} --out-dir {out_dir}/meta_plots \
-            --param-name {params.param_name} --range {params.range}
+         python {__location__}/plot_range.py --in-csv {input.in_csv} --out-svg {output.eff_svg} \
+            --param-name {params.param_name}
          """
 
 rule plot:
     input:
-        in_pkl=f'{out_dir}classified_{{  "{{par}}" }}_{{ "{{val}}" }}.pkl',
+        in_pkl=f'{out_dir}resolution{{ "{{res}}" }}_catch_rate{{ "{{cr}}" }}_efficiency{{ "{{eff}}" }}/classifications/classified_{{ "{{idx}}" }}.pkl',
         perfect_pkl = f'{out_dir}digested_products_database.pkl'
     output:
-        csv=f'{out_dir}plots_{{  "{{par,[^_]+}}" }}_{{ "{{val}}" }}/classification_eval.csv'
+        csv=f'{out_dir}resolution{{ "{{res}}" }}_catch_rate{{ "{{cr}}" }}_efficiency{{ "{{eff}}" }}/plots/{{ "{{idx}}" }}/classification_eval.csv'
     shell:
          """
          python {__location__}/plot_classification_results.py --classify-pkl {input.in_pkl} --targets-pkl \
-                {input.perfect_pkl} --out-dir {out_dir}plots_{wildcards.par}_{wildcards.val}
+                {input.perfect_pkl} --out-dir {out_dir}resolution{wildcards.res}_catch_rate{wildcards.cr}_efficiency{wildcards.eff}/plots/{wildcards.idx}/
          """
 
 
 rule classify:
     input:
         digest_database=f'{out_dir}digested_products_database.pkl',
-        digest_targets=f'{out_dir}digested_products_targets_{{  "{{par}}" }}_{{ "{{val}}" }}.pkl'
+        digest_targets=f'{out_dir}resolution{{ "{{res}}" }}_catch_rate{{ "{{cr}}" }}_efficiency{{ "{{eff}}" }}/digestions/digested_products_{{ "{{idx}}" }}.pkl'
     output:
-        pkl=f'{out_dir}classified_{{ "{{par,[^_]+}}" }}_{{ "{{val}}" }}.pkl'
+        pkl=f'{out_dir}resolution{{ "{{res}}" }}_catch_rate{{ "{{cr}}" }}_efficiency{{ "{{eff}}" }}/classifications/classified_{{ "{{idx}}" }}.pkl'
     threads: {{ cores }}
     shell:
         """
@@ -81,29 +98,17 @@ rule classify:
         """
 
 
-rule digest_target_res:
+rule digest_target:
     output:
-        digest_pkl=f'{out_dir}digested_products_targets_res_{{ "{{res}}" }}.pkl'
+        digest_pkl=f'{out_dir}resolution{{ "{{res}}" }}_catch_rate{{ "{{cr}}" }}_efficiency{{ "{{eff}}" }}/digestions/digested_products_{{ "{{idx}}" }}.pkl'
     shell:
         """
         python {__location__}/digest.py --in-dir {fasta_dir} --out-pkl {output.digest_pkl} --enzyme {enzyme} \
                 --dynamic-range {dynamic_range} --ph {ph} --min-charge {min_charge} \
-                --catch-rate {catch_rate} \
-                --resolution {wildcards.res} --specificity {specificity} --efficiency {efficiency} --repeats 1
+                --catch-rate {wildcards.cr} \
+                --subsampling-fraction {subsampling_fraction} \
+                --resolution {wildcards.res} --specificity {specificity} --efficiency {wildcards.eff} --repeats 1
         """
-
-rule digest_target_eff:
-    output:
-        digest_pkl=f'{out_dir}digested_products_targets_eff_{{ "{{eff}}" }}.pkl'
-    shell:
-        """
-        python {__location__}/digest.py --in-dir {fasta_dir} --out-pkl {output.digest_pkl} --enzyme {enzyme} \
-                --dynamic-range {dynamic_range} --ph {ph} --min-charge {min_charge} \
-                --catch-rate {catch_rate} \
-                --resolution {resolution} --specificity {specificity} --efficiency {wildcards.eff} --repeats 1
-        """
-
-
 
 rule digest_perfect:
     output:
@@ -114,3 +119,27 @@ rule digest_perfect:
                 --dynamic-range {dynamic_range} --ph {ph} --min-charge {min_charge} \
                 --resolution 0.0 --specificity 1.0 --efficiency 1.0 --repeats 1
         """
+
+
+
+# rule digest_target_res:
+#     output:
+#         digest_pkl=f'{out_dir}digested_products_targets_res_{{ "{{res}}" }}.pkl'
+#     shell:
+#         """
+#         python {__location__}/digest.py --in-dir {fasta_dir} --out-pkl {output.digest_pkl} --enzyme {enzyme} \
+#                 --dynamic-range {dynamic_range} --ph {ph} --min-charge {min_charge} \
+#                 --catch-rate {catch_rate} \
+#                 --resolution {wildcards.res} --specificity {specificity} --efficiency {efficiency} --repeats 1
+#         """
+#
+# rule digest_target_eff:
+#     output:
+#         digest_pkl=f'{out_dir}digested_products_targets_eff_{{ "{{eff}}" }}.pkl'
+#     shell:
+#         """
+#         python {__location__}/digest.py --in-dir {fasta_dir} --out-pkl {output.digest_pkl} --enzyme {enzyme} \
+#                 --dynamic-range {dynamic_range} --ph {ph} --min-charge {min_charge} \
+#                 --catch-rate {catch_rate} \
+#                 --resolution {resolution} --specificity {specificity} --efficiency {wildcards.eff} --repeats 1
+#         """

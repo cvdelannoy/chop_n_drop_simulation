@@ -7,8 +7,8 @@ from helpers import parse_output_dir, parse_input_dir, create_digest_re, digest
 from Bio.SeqIO import FastaIO
 from Bio.SeqUtils.ProtParam import ProteinAnalysis
 from Bio.SeqUtils.IsoelectricPoint import IsoelectricPoint
-from math import inf
-from random import random
+from math import inf, ceil
+from random import random, sample
 
 parser = argparse.ArgumentParser(description='In silico digest sequences in fasta files, store their'
                                              'chop-n-drop fingerprints.')
@@ -35,9 +35,14 @@ parser.add_argument('--repeats', type=int, default=1,
                          'otherwise fingerprints will end up the same each time. [default: 1]')
 parser.add_argument('--enzyme', type=str, default='trypsin',
                     help='Define which enzyme to use for digestion [default: trypsin]') # todo add options
+parser.add_argument('--subsampling-fraction', default=1.0, type=float,
+                    help='When subsampling sequences for targets db, define what fraction is taken [default: 1.0]')
 args = parser.parse_args()
 
 fasta_list = parse_input_dir(args.in_dir, pattern='*.fasta')
+if args.subsampling_fraction < 1.0:
+    nb_subsampled = ceil(len(fasta_list) * args.subsampling_fraction)
+    fasta_list = sample(fasta_list, nb_subsampled)
 nb_proteins = len(fasta_list)
 out_pkl = parse_output_dir(os.path.dirname(args.out_pkl), clean=False) + basename(args.out_pkl)
 digest_re = create_digest_re(args.enzyme)
