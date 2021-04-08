@@ -13,27 +13,20 @@ specificity = "{{ specificity }}"
 subsampling_fraction = float({{ subsampling_fraction }})
 
 # Variable parameters
-resolution = "{{ resolution }}"
-min_res, max_res = int({{ min_res }}), int({{ max_res }})
-res_range = list(range(min_res, max_res, (max_res - min_res) // {{ nb_range_steps }}))
-
-efficiency = "{{ efficiency }}"
-eff_range = np.linspace({{ min_eff }}, {{ max_eff }}, {{ nb_range_steps }})
-
-catch_rate = "{{ catch_rate }}"
-cr_range = np.linspace({{ min_cr }}, {{ max_cr }}, {{ nb_range_steps }})
+resolution = {{ resolution }}
+efficiency = {{ efficiency }}
+catch_rate = {{ catch_rate }}
+soma_cr = {{ soma_cr }}
 
 idx_range = np.arange(int({{ repeats }}))
 
-rule target:
-    input:
-        res_svg=f'{out_dir}meta_plots/accuracy_vs_resolution.svg',
-        cr_svg=f'{out_dir}meta_plots/accuracy_vs_catch_rate.svg',
-        eff_svg=f'{out_dir}meta_plots/accuracy_vs_efficiency.svg'
+
+{{ target_rule }}
+
 
 rule resolution_plot:
     input:
-        in_csv=expand(f'{out_dir}resolution{{ "{{res}}" }}_catch_rate{catch_rate}_efficiency{efficiency}/plots/{{ "{{idx}}" }}/classification_eval.csv', res=res_range, idx=idx_range)
+        in_csv=expand(f'{out_dir}resolution{{ "{{res}}" }}_catch_rate{catch_rate}_efficiency{efficiency}_somacr{soma_cr}/plots/{{ "{{idx}}" }}/classification_eval.csv', res={{ res_range }}, idx=idx_range)
     params:
         param_name='resolution'
     output:
@@ -46,7 +39,7 @@ rule resolution_plot:
 
 rule catch_rate_plot:
     input:
-        in_csv=expand(f'{out_dir}resolution{resolution}_catch_rate{{ "{{cr}}" }}_efficiency{efficiency}/plots/{{ "{{idx}}" }}/classification_eval.csv', cr=cr_range, idx=idx_range)
+        in_csv=expand(f'{out_dir}resolution{resolution}_catch_rate{{ "{{cr}}" }}_efficiency{efficiency}_somacr{soma_cr}/plots/{{ "{{idx}}" }}/classification_eval.csv', cr={{ cr_range }}, idx=idx_range)
     params:
         param_name='catch_rate'
     output:
@@ -57,10 +50,9 @@ rule catch_rate_plot:
             --param-name {params.param_name}
          """
 
-
 rule efficiency_plot:
     input:
-        in_csv=expand(f'{out_dir}resolution{resolution}_catch_rate{catch_rate}_efficiency{{ "{{eff}}" }}/plots/{{ "{{idx}}" }}/classification_eval.csv', eff=eff_range, idx=idx_range)
+        in_csv=expand(f'{out_dir}resolution{resolution}_catch_rate{catch_rate}_efficiency{{ "{{eff}}" }}_somacr{soma_cr}/plots/{{ "{{idx}}" }}/classification_eval.csv', eff={{ eff_range }}, idx=idx_range)
     params:
         param_name='efficiency'
     output:
@@ -71,16 +63,30 @@ rule efficiency_plot:
             --param-name {params.param_name}
          """
 
+rule soma_cr_plot:
+    input:
+        in_csv=expand(f'{out_dir}resolution{resolution}_catch_rate{catch_rate}_efficiency{efficiency}_somacr{{ "{{scr}}" }}/plots/{{ "{{idx}}" }}/classification_eval.csv', scr={{ soma_cr_range }}, idx=idx_range)
+    params:
+        param_name='somacr'
+    output:
+        eff_svg=f'{out_dir}meta_plots/accuracy_vs_somacr.svg'
+    shell:
+         """
+         python {__location__}/plot_range.py --in-csv {input.in_csv} --out-svg {output.eff_svg} \
+            --param-name {params.param_name}
+         """
+
+
 rule plot:
     input:
-        in_pkl=f'{out_dir}resolution{{ "{{res}}" }}_catch_rate{{ "{{cr}}" }}_efficiency{{ "{{eff}}" }}/classifications/classified_{{ "{{idx}}" }}.pkl',
+        in_pkl=f'{out_dir}resolution{{ "{{res}}" }}_catch_rate{{ "{{cr}}" }}_efficiency{{ "{{eff}}" }}_somacr{{ "{{scr}}" }}/classifications/classified_{{ "{{idx}}" }}.pkl',
         perfect_pkl = f'{out_dir}digested_products_database.pkl'
     output:
-        csv=f'{out_dir}resolution{{ "{{res}}" }}_catch_rate{{ "{{cr}}" }}_efficiency{{ "{{eff}}" }}/plots/{{ "{{idx}}" }}/classification_eval.csv'
+        csv=f'{out_dir}resolution{{ "{{res}}" }}_catch_rate{{ "{{cr}}" }}_efficiency{{ "{{eff}}" }}_somacr{{ "{{scr}}" }}/plots/{{ "{{idx}}" }}/classification_eval.csv'
     shell:
          """
          python {__location__}/plot_classification_results.py --classify-pkl {input.in_pkl} --targets-pkl \
-                {input.perfect_pkl} --out-dir {out_dir}resolution{wildcards.res}_catch_rate{wildcards.cr}_efficiency{wildcards.eff}/plots/{wildcards.idx}/
+                {input.perfect_pkl} --out-dir {out_dir}resolution{wildcards.res}_catch_rate{wildcards.cr}_efficiency{wildcards.eff}_somacr{wildcards.scr}/plots/{wildcards.idx}/
          """
 
 
@@ -89,12 +95,13 @@ rule classify:
         digest_database=f'{out_dir}digested_products_database.pkl',
         digest_targets=f'{out_dir}resolution{{ "{{res}}" }}_catch_rate{{ "{{cr}}" }}_efficiency{{ "{{eff}}" }}/digestions/digested_products_{{ "{{idx}}" }}.pkl'
     output:
-        pkl=f'{out_dir}resolution{{ "{{res}}" }}_catch_rate{{ "{{cr}}" }}_efficiency{{ "{{eff}}" }}/classifications/classified_{{ "{{idx}}" }}.pkl'
+        pkl=f'{out_dir}resolution{{ "{{res}}" }}_catch_rate{{ "{{cr}}" }}_efficiency{{ "{{eff}}" }}_somacr{{ "{{scr}}" }}/classifications/classified_{{ "{{idx}}" }}.pkl'
     threads: {{ cores }}
     shell:
         """
         python {__location__}/classify.py --db {input.digest_database} --targets {input.digest_targets} \
-                --out-pkl {output.pkl} --cores {threads} --algorithm {algorithm}
+                --soma-cr {wildcards.scr} --resolution {wildcards.res} \
+                --out-pkl {output.pkl} --cores {threads} --algorithm {algorithm} --save-matching-fps
         """
 
 
@@ -119,27 +126,3 @@ rule digest_perfect:
                 --dynamic-range {dynamic_range} --ph {ph} --min-charge {min_charge} \
                 --resolution 0.0 --specificity 1.0 --efficiency 1.0 --repeats 1
         """
-
-
-
-# rule digest_target_res:
-#     output:
-#         digest_pkl=f'{out_dir}digested_products_targets_res_{{ "{{res}}" }}.pkl'
-#     shell:
-#         """
-#         python {__location__}/digest.py --in-dir {fasta_dir} --out-pkl {output.digest_pkl} --enzyme {enzyme} \
-#                 --dynamic-range {dynamic_range} --ph {ph} --min-charge {min_charge} \
-#                 --catch-rate {catch_rate} \
-#                 --resolution {wildcards.res} --specificity {specificity} --efficiency {efficiency} --repeats 1
-#         """
-#
-# rule digest_target_eff:
-#     output:
-#         digest_pkl=f'{out_dir}digested_products_targets_eff_{{ "{{eff}}" }}.pkl'
-#     shell:
-#         """
-#         python {__location__}/digest.py --in-dir {fasta_dir} --out-pkl {output.digest_pkl} --enzyme {enzyme} \
-#                 --dynamic-range {dynamic_range} --ph {ph} --min-charge {min_charge} \
-#                 --catch-rate {catch_rate} \
-#                 --resolution {resolution} --specificity {specificity} --efficiency {wildcards.eff} --repeats 1
-#         """

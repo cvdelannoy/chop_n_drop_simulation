@@ -5,9 +5,13 @@ import pandas as pd
 from tslearn.metrics import dtw
 from math import inf
 from scipy.stats import norm
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
+
+import seaborn as sns
 # from scipy.spatial.distance import euclidean
 # from fastdtw import fastdtw
-from soma import soma, soma_alt, soma_dtw, gapped_nw
+from soma import soma, soma_alt, soma_dtw
 try:
     import pickle5 as pickle
 except:
@@ -16,6 +20,10 @@ from datetime import datetime
 from itertools import chain
 import multiprocessing as mp
 
+__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+sys.path.append(__location__)
+
+from helpers import parse_output_dir
 
 def get_sigma(p, res):
     """
@@ -23,8 +31,30 @@ def get_sigma(p, res):
     """
     return -1 * res / norm.ppf(p * 0.5, 0, 1)
 
+def plot_heatmap(val_mat, path_mat, fp, db_fp, fp_id, db_id):
 
-def classify_fingerprints(target_dict, db, cdf, algo, soma_cr, sigma, save_matching_fps=False):
+    pm_bin = np.zeros(path_mat.shape[1:], dtype=int)
+    i, j = [x-1 for x in pm_bin.shape]
+    pm_bin[-1,-1] = 1
+    pp = (i,j)
+    while i != -1 or j != -1:
+        pm_bin[i:pp[0], j:pp[1]] = 1
+        pp = (i, j)
+        i, j = path_mat[:, i, j]
+    else:
+        pm_bin[0:pp[0], 0:pp[1]] = 1
+
+    fig, ax = plt.subplots(1, 1, figsize=(10, 10))
+    sns.heatmap(pm_bin.astype(float), cbar=False, square=True, annot=False, cmap=sns.color_palette("coolwarm", as_cmap=True),
+                center=0.5, vmin=0, vmax=1,
+                ax=ax, linewidths=0.5, linecolor='black')
+    sns.heatmap(val_mat, cbar=False, square=True, annot=True, alpha=0.0, #linewidths=0.5, linecolor='black',
+                annot_kws={'color': 'white', 'fontweight': 'bold'}, # fmt='',
+                cmap=ListedColormap(['black']), ax=ax, xticklabels=db_fp.astype(str), yticklabels=fp.astype(int).astype(str)[::-1])
+    ax.set_xlabel(f'query: {db_id}'); ax.set_ylabel(f'DB: {fp_id}')
+    return fig
+
+def classify_fingerprints(target_dict, db, cdf, algo, soma_cr, sigma, plot_path, save_matching_fps=False):
     rd_out = {}
     max_len_db_fps = max(db)
     matching_fps = {}
@@ -42,31 +72,51 @@ def classify_fingerprints(target_dict, db, cdf, algo, soma_cr, sigma, save_match
         max_sr = max(fp_len + d_sr, 1)
         max_sr = min(max_sr, max_len_db_fps)
         db_range = np.arange(min_sr, max_sr)
+        plt_dict = {}
+        true_hit_found = False
         for nbf in db:
+            plt_dict[nbf] = {}
             if nbf not in db_range: continue
             for cidx in db[nbf].index:
+                if tid == db[nbf].loc[cidx, 'seq_id']:
+                    true_score, true_path = soma_alt(fp, db[nbf].loc[
+                        cidx, [f'ss{i}' for i in range(nbf)]].to_numpy().astype(np.float), soma_cr, sigma,
+                                           track_path=True)
+                    true_idx = (nbf, cidx)
+                    true_hit_found = True
                 if algo == 'soma_alt':
-                    cdf.loc[(nbf, cidx), 'dtw_score'] = soma_alt(fp, db[nbf].loc[cidx, [f'ss{i}' for i in range(nbf)]].to_numpy().astype(np.float), soma_cr, sigma)
+                    score, path = soma_alt(fp, db[nbf].loc[
+                        cidx, [f'ss{i}' for i in range(nbf)]].to_numpy().astype(np.float), soma_cr, sigma, track_path=True)
+                    cdf.loc[(nbf, cidx), 'dtw_score'] = score[-1,-1]
                 elif algo == 'soma':
-                    cdf.loc[(nbf, cidx), 'dtw_score'] = soma(fp, db[nbf].loc[cidx, [f'ss{i}' for i in range(nbf)]].to_numpy().astype(np.float), soma_cr, sigma)
-                elif algo == 'dtw':
-                    cdf.loc[(nbf, cidx), 'dtw_score'] = dtw(fp, db[nbf].loc[cidx, [f'ss{i}' for i in range(nbf)]])
-                elif algo == 'soma_dtw':
-                    cdf.loc[(nbf, cidx), 'dtw_score'] = soma_dtw(fp, db[nbf].loc[cidx, [f'ss{i}' for i in range(nbf)]].to_numpy().astype(np.float), soma_cr, sigma)
-                elif algo == 'gapped_nw':
-                    cdf.loc[(nbf, cidx), 'dtw_score'] = gapped_nw(fp, db[nbf].loc[cidx, [f'ss{i}' for i in range(nbf)]].to_numpy().astype(np.float))
+                    score, path = soma(fp, db[nbf].loc[cidx, [f'ss{i}' for i in range(nbf)]].to_numpy().astype(np.float),
+                                                             soma_cr, sigma, track_path=True)
+                    cdf.loc[(nbf, cidx), 'dtw_score'] = score[-1, -1]
                 else:
                     raise ValueError(f'{algo} is not a valid algorithm name')
-                # for tti, ttup in enumerate(top3):
-                #     if score < ttup[0]:
-                #         if tti != 2: top3[tti+1:] = top3[tti:2]
-                #         top3[tti] = (score, (nbf, cidx))
+                plt_dict[nbf][cidx] = (score, path)
+
         top_idx = cdf.sort_values(['dtw_score'], ascending=True).iloc[:5, :].index
         top_ids = [db[i1].loc[i2, 'seq_id'] for i1, i2, in top_idx]
+
+        score_mat, path_mat = plt_dict[top_idx[0][0]][top_idx[0][1]]
+        fig = plot_heatmap(score_mat, path_mat,
+                           fp, db[top_idx[0][0]].loc[top_idx[0][1], [f'ss{i}' for i in range(top_idx[0][0])]].to_numpy().astype(int),
+                           tid, top_ids[0])
+        fig.savefig(f'{plot_path}{tid}_vs_{top_ids[0]}.svg')
+        plt.close(fig)
+
+        if true_hit_found:
+            fig = plot_heatmap(true_score, true_path,
+                               fp, db[true_idx[0]].loc[
+                                   true_idx[1], [f'ss{i}' for i in range(true_idx[0])]].to_numpy().astype(int),
+                               tid, tid)
+            fig.savefig(f'{plot_path}{tid}_true.svg')
+            plt.close(fig)
+
+
         rd_out[tid] = top_ids
         cdf.loc[:, 'dtw_score'] = np.nan
-        if tid == 'A8MZ97':
-            cp=1
 
         if save_matching_fps:
             matching_fps[tid] = {f'{top_ids[ii]}_{ii}': db[i1].loc[i2, [f'ss{i}' for i in range(i1)]].to_list() for ii, (i1, i2) in enumerate(top_idx[:3].to_list())}
@@ -85,8 +135,8 @@ def classify_fingerprints(target_dict, db, cdf, algo, soma_cr, sigma, save_match
     return rd_out
 
 
-def classify_fingerprints_parallel(target_dict, db, cdf, algo, soma_cr, sd2, save_matching_fps, out_queue):
-    out_dict = classify_fingerprints(target_dict, db, cdf, algo, soma_cr, sd2, save_matching_fps)
+def classify_fingerprints_parallel(target_dict, db, cdf, algo,  soma_cr, sd2, plot_path, save_matching_fps,out_queue):
+    out_dict = classify_fingerprints(target_dict, db, cdf, algo, soma_cr, sd2, plot_path, save_matching_fps)
     out_queue.put(out_dict)
 
 
@@ -94,14 +144,17 @@ parser = argparse.ArgumentParser(description='Return most likely classification 
 parser.add_argument('--db', type=str, required=True)
 parser.add_argument('--targets', type=str, required=True)
 parser.add_argument('--out-pkl', type=str, required=True)
+parser.add_argument('--plot-dir', type=str, required=True)
 parser.add_argument('--resolution', type=float, required=True)
 parser.add_argument('--save-matching-fps', action='store_true')
 parser.add_argument('--soma-cr', type=float, default=4.0)
-parser.add_argument('--algorithm', type=str, choices=['dtw', 'soma', 'soma_alt', 'soma_dtw', 'gapped_nw'], default='soma',
+parser.add_argument('--algorithm', type=str, choices=['dtw', 'soma', 'soma_alt', 'soma_dtw'], default='soma',
                     help='Define which method to use to determine distance between fingerprints [default:soma]')
 parser.add_argument('--cores', type=int, default=4)
 
 args = parser.parse_args()
+
+plot_path = parse_output_dir(args.plot_dir)
 
 with open(args.db, 'rb') as fh: db = pickle.load(fh)
 for nbf in db:
@@ -128,7 +181,7 @@ if args.cores < 1:
     raise ValueError('provide positive number of cores')
 elif args.cores == 1:
     results, matching_fp_dict = classify_fingerprints(target_dict, db, comparison_df.copy(), args.algorithm,
-                                                      args.soma_cr, sd2, args.save_matching_fps)
+                                                      args.soma_cr, sd2, plot_path, args.save_matching_fps)
 else:
     pid_list = np.array_split(np.arange(len(target_dict)), args.cores)
     target_idx_list = list(target_dict)
@@ -137,7 +190,7 @@ else:
     out_queue = mp.Queue()
     processes = [mp.Process(target=classify_fingerprints_parallel,
                             args=(target_list[tidx], db, comparison_df.copy(), args.algorithm, args.soma_cr, sd2,
-                                  args.save_matching_fps, out_queue))
+                                  plot_path, args.save_matching_fps, out_queue))
                  for tidx in range(args.cores)]
     for p in processes:
         p.start()

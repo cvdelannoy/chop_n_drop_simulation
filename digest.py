@@ -9,6 +9,15 @@ from Bio.SeqUtils.ProtParam import ProteinAnalysis
 from Bio.SeqUtils.IsoelectricPoint import IsoelectricPoint
 from math import inf, ceil
 from random import random, sample
+from scipy.stats import norm
+
+
+def get_sigma(p, res):
+    """
+    Find std deviation for given threshold and resolution
+    """
+    return -1 * res / norm.ppf(p * 0.5, 0, 1)
+
 
 parser = argparse.ArgumentParser(description='In silico digest sequences in fasta files, store their'
                                              'chop-n-drop fingerprints.')
@@ -84,7 +93,8 @@ for fai, fa_fn in enumerate(fasta_list):
         tot_weight = sseq_df.mw.sum()
 
         # Add gaussian noise
-        sseq_df.mw += np.random.normal(0, args.resolution, len(sseq_df))
+        sigma = get_sigma(0.5, args.resolution)
+        sseq_df.mw += np.random.normal(0, sigma, len(sseq_df))
 
         # Remove peptides if too light or too negatively charged, set max weight
         sseq_df.query(f'mw > {args.dynamic_range[0]}', inplace=True)
