@@ -7,7 +7,7 @@ from math import inf
 from scipy.stats import norm
 # from scipy.spatial.distance import euclidean
 # from fastdtw import fastdtw
-from soma import soma, soma_alt, soma_dtw, gapped_nw
+from soma import align
 try:
     import pickle5 as pickle
 except:
@@ -45,29 +45,13 @@ def classify_fingerprints(target_dict, db, cdf, algo, soma_cr, sigma, save_match
         for nbf in db:
             if nbf not in db_range: continue
             for cidx in db[nbf].index:
-                if algo == 'soma_alt':
-                    cdf.loc[(nbf, cidx), 'dtw_score'] = soma_alt(fp, db[nbf].loc[cidx, [f'ss{i}' for i in range(nbf)]].to_numpy().astype(np.float), soma_cr, sigma)
-                elif algo == 'soma':
-                    cdf.loc[(nbf, cidx), 'dtw_score'] = soma(fp, db[nbf].loc[cidx, [f'ss{i}' for i in range(nbf)]].to_numpy().astype(np.float), soma_cr, sigma)
-                elif algo == 'dtw':
-                    cdf.loc[(nbf, cidx), 'dtw_score'] = dtw(fp, db[nbf].loc[cidx, [f'ss{i}' for i in range(nbf)]])
-                elif algo == 'soma_dtw':
-                    cdf.loc[(nbf, cidx), 'dtw_score'] = soma_dtw(fp, db[nbf].loc[cidx, [f'ss{i}' for i in range(nbf)]].to_numpy().astype(np.float), soma_cr, sigma)
-                elif algo == 'gapped_nw':
-                    cdf.loc[(nbf, cidx), 'dtw_score'] = gapped_nw(fp, db[nbf].loc[cidx, [f'ss{i}' for i in range(nbf)]].to_numpy().astype(np.float))
-                else:
-                    raise ValueError(f'{algo} is not a valid algorithm name')
-                # for tti, ttup in enumerate(top3):
-                #     if score < ttup[0]:
-                #         if tti != 2: top3[tti+1:] = top3[tti:2]
-                #         top3[tti] = (score, (nbf, cidx))
+                cdf.loc[(nbf, cidx), 'dtw_score'] = align(
+                    fp, db[nbf].loc[cidx, [f'ss{i}' for i in range(nbf)]].to_numpy().astype(np.float),
+                    algo, soma_cr, soma_cr, sd2)
         top_idx = cdf.sort_values(['dtw_score'], ascending=True).iloc[:5, :].index
         top_ids = [db[i1].loc[i2, 'seq_id'] for i1, i2, in top_idx]
         rd_out[tid] = top_ids
         cdf.loc[:, 'dtw_score'] = np.nan
-        if tid == 'A8MZ97':
-            cp=1
-
         if save_matching_fps:
             matching_fps[tid] = {f'{top_ids[ii]}_{ii}': db[i1].loc[i2, [f'ss{i}' for i in range(i1)]].to_list() for ii, (i1, i2) in enumerate(top_idx[:3].to_list())}
             matching_fps[tid]['target'] = fp
@@ -97,7 +81,7 @@ parser.add_argument('--out-pkl', type=str, required=True)
 parser.add_argument('--resolution', type=float, required=True)
 parser.add_argument('--save-matching-fps', action='store_true')
 parser.add_argument('--soma-cr', type=float, default=4.0)
-parser.add_argument('--algorithm', type=str, choices=['dtw', 'soma', 'soma_alt', 'soma_dtw', 'gapped_nw'], default='soma',
+parser.add_argument('--algorithm', type=str, choices=['dtw', 'soma', 'soma_alt', 'soma_dtw', 'gapped_nw', 'soma_like'], default='soma',
                     help='Define which method to use to determine distance between fingerprints [default:soma]')
 parser.add_argument('--cores', type=int, default=4)
 

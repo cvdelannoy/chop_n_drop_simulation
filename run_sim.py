@@ -57,7 +57,7 @@ parser.add_argument('--subsampling-fraction', default=1.0, type=float,
                     help='When subsampling sequences for targets db, define what fraction is taken [default: 1.0]')
 
 # --- misc ---
-parser.add_argument('--algorithm', type=str, choices=['dtw', 'soma', 'soma_alt', 'gapped_nw'], default='soma',
+parser.add_argument('--algorithm', type=str, choices=['dtw', 'soma', 'soma_alt', 'gapped_nw', 'soma_like'], default='soma',
                     help='Define which method to use to determine distance between fingerprints [default:soma]')
 parser.add_argument('--cores', type=int, default=4,
                     help='Max number of cores to engage simultaneously. [default: 4]')

@@ -1,28 +1,113 @@
 from numba import njit
 import numpy as np
 
+
+def align(s1, s2, algo, gp=None, cr=None, sd2=None, return_trace=False):
+    if algo == 'gapped_nw':
+        if gp is None:
+            raise ValueError('Need gap penalty (gp) for gapped_nw')
+        return gapped_nw(s1, s2, gp, return_trace)
+    elif algo == 'soma_alt':
+        if cr is None or sd2 is None:
+            raise ValueError('Need cr and sd2 for soma_alt')
+        return soma_alt(s1, s2, cr, sd2, return_trace)
+    elif algo == 'soma':
+        if cr is None or sd2 is None:
+            raise ValueError('Need cr and sd2 for soma')
+        return soma(s1, s2, cr, sd2, return_trace)
+    elif algo == 'soma_like':
+        return soma_like(s1, s2, gp, sd2, return_trace)
+    else:
+        raise ValueError(f'{algo} not recognized as algorithm')
+
+
+def gapped_nw(s1, s2, gp, return_trace=False):
+    cs, tp = gapped_nw_njit(s1, s2, gp)
+    if return_trace:
+        return cs, tp
+    return cs[-1,-1]
+
+
 @njit()
-def gapped_nw(s1, s2):
+def gapped_nw_njit(s1, s2, gp):
     l1 = s1.shape[0]
     l2 = s2.shape[0]
-    cum_sum = np.full((l1 + 1, l2 + 1), np.inf)
+    cum_sum = np.full((l1 + 1, l2 + 1, 2), np.inf)
     cum_sum[0, 0] = 0.
-    skip_mat = np.full((l1 + 1, l2 + 1), np.inf)
-    skip_mat[0,0] = 0.
+    tp = np.full((2, l1 + 1, l2 + 1), 0)
     for i in range(l1):
         for j in range(l2):
-            steps = np.array([(s1[i] - s2[j]) ** 2 + cum_sum[i, j],
-                              (s1[i] + s1[i-1] - s2[j]) ** 2 + skip_mat[i, j+1],  # for i or j == 0, will not be minimal because skip_mat will be inf
-                              (s2[j-1] + s2[j] - s1[i]) ** 2 + skip_mat[i+1, j]])
+            steps = np.array([(s1[i] - s2[j]) ** 2 + cum_sum[i, j, 0],
+                              (s1[i] + s1[i-1] - s2[j]) ** 2 + cum_sum[i, j+1, 1] + gp,  # for i or j == 0, will not be minimal because skip_mat will be inf
+                              (s2[j-1] + s2[j] - s1[i]) ** 2 + cum_sum[i+1, j, 1] + gp])
             wi = np.argmin(steps)
             if wi == 0:
-                skip_mat[i+1,j+1] = cum_sum[i, j]
+                cum_sum[i+1,j+1, 1] = cum_sum[i, j, 0]
+                tp[:, i+1, j+1] = (i,j)
             elif wi == 1:
-                skip_mat[i + 1, j + 1] = cum_sum[i, j+1]
+                cum_sum[i + 1, j + 1, 1] = cum_sum[i, j+1, 0]
+                tp[:, i + 1, j + 1] = (i, j+1)
             else:
-                skip_mat[i + 1, j + 1] = cum_sum[i+1, j]
-            cum_sum[i+1, j+1] = steps[wi]
-    return cum_sum[-1, -1]
+                cum_sum[i + 1, j + 1, 1] = cum_sum[i+1, j, 0]
+                tp[:, i + 1, j + 1] = (i+1, j)
+            cum_sum[i+1, j+1, 0] = steps[wi]
+    return cum_sum[1:, 1:, 0], tp[:, 1:, 1:] - 1
+
+def soma_like(s1, s2, gp, sd2, return_trace=False):
+    cs, tp = soma_like_njit(s1, s2, gp, sd2, return_trace)
+    if return_trace:
+        return cs, tp
+    return cs[-1,-1]
+
+
+@njit()
+def soma_like_njit(s1, s2, gp, sd2, return_trace=False):
+    gp = 4 * sd2
+    pad = np.array([np.inf, np.inf])
+    s1 = np.append(pad, s1)
+    s2 = np.append(pad, s2)
+    # s1 = np.concatenate([np.tile(np.inf, 2), s1])
+    # s2 = np.concatenate([np.tile(np.inf, 2), s2])
+    l1 = s1.shape[0]
+    l2 = s2.shape[0]
+    cum_sum = np.full((l1, l2), np.inf)
+    cum_sum[1, 1] = 0.
+    tp = np.full((2, l1, l2), 0)
+
+    for i in range(2, l1):
+        for j in range(2, l2):
+            # steps = np.array([
+            #     (s1[i] - s2[j]) ** 2 + cum_sum[i-1, j-1],
+            #     (s1[i] + s1[i-1] - s2[j]) ** 2 + min(cum_sum[i-2, j-1]),
+            #     (s1[i] - s2[j] - s2[j-1]) ** 2 + min(cum_sum[i-1, j-2]),
+            #     (s1[i] - s2[j]) ** 2 + gp + min(cum_sum[i-2, j-1]),
+            #     (s1[i] - s2[j]) ** 2 + gp + min(cum_sum[i-1, j-2]),
+            # ])
+            steps = np.array([
+                (s1[i] - s2[j]) ** 2 + cum_sum[i - 1, j - 1],
+                (s1[i] + s1[i - 1] - s2[j]) ** 2 + cum_sum[i - 2, j - 1],
+                (s1[i] - s2[j] - s2[j - 1]) ** 2 + cum_sum[i - 1, j - 2],
+                (s1[i] - s2[j]) ** 2 + gp + cum_sum[i - 2, j - 1],
+                (s1[i] - s2[j]) ** 2 + gp + cum_sum[i - 1, j - 2],
+            ])
+            cum_sum[i,j] = np.min(steps)
+            if return_trace:
+                wi = np.argmin(steps)
+                if wi == 0:
+                    tp[:, i, j] = (i-1, j-1)
+                elif wi == 1:
+                    tp[:, i, j] = (i-2, j-1)
+                elif wi == 2:
+                    tp[:, i, j] = (i-1, j-2)
+                elif wi == 3:
+                    tp[:, i, j] = (i-2, j-1)
+                else:
+                    tp[:, i, j] = (i-1, j-2)
+    cum_sum[-1,-1] = np.min(np.array([cum_sum[-1,-1],
+                               (s1[-1] - s2[-2]) ** 2 + gp + cum_sum[-1, -2],
+                               (s1[-2] - s2[-1]) ** 2 + gp + cum_sum[-2, -1]
+                               ]))
+    return cum_sum[2:, 2:], tp[:, 2:, 2:] - 2
 
 
 
