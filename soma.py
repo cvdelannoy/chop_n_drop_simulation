@@ -62,7 +62,7 @@ def soma_like(s1, s2, gp, sd2, return_trace=False):
 
 @njit()
 def soma_like_njit(s1, s2, gp, sd2, return_trace=False):
-    gp = 4 * sd2
+    gp = 1.96 ** 2 * sd2
     pad = np.array([np.inf, np.inf])
     s1 = np.append(pad, s1)
     s2 = np.append(pad, s2)
