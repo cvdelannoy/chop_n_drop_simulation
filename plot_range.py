@@ -19,7 +19,7 @@ summary_list = []
 for it, fn in enumerate(args.in_csv):
     df = pd.read_csv(fn)
     param_value = re.search(f'(?<={args.param_name})[0-9.]+', fn).group(0)
-    summary_list.append(pd.Series({args.param_name: param_value, 'acc': len(df.query('pred == "top1"')) / len(df)}))
+    summary_list.append(pd.Series({args.param_name: param_value, 'acc': len(df.query('pred == "correct"')) / len(df)}))
 summary_df = pd.concat(summary_list, axis=1).T
 summary_df.acc = summary_df.acc.astype(float)
 
