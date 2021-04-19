@@ -2,6 +2,7 @@ import argparse, os, sys
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib import gridspec
 import seaborn as sns
 try:
     import pickle5 as pickle
@@ -27,11 +28,30 @@ def plot_barhist(cdf, feat, top_pct=None, binwidth=None):
                  ax=ax)
     return fig
 
-def plot_abs_barhist(cdf, feat, feat_range=None):
-    fig = plt.figure(figsize=(10, 5))
+def plot_abs_barhist(cdf, feat, feat_str, feat_range):
+    wdim = 15
+    fig = plt.figure(figsize=(8.25, 2.9375))
+    gs = gridspec.GridSpec(1, wdim, figure=fig)
+
+    # Plot main histogram
+    ax = fig.add_subplot(gs[0, :wdim - 1])
     target_dict = {cl: sdf.loc[:, feat].to_numpy() for cl, sdf in cdf.groupby('pred')}
     target_dict = {cl: target_dict[cl] for cl in ('correct', 'misclassified')}
-    plt.hist(target_dict.values(), 100, stacked=True, range=(1,100), color=['#fbb4ae', '#fed9a6', '#ccebc5'][::-1])
+    ax.hist(target_dict.values(), 30, stacked=True, range=feat_range, color=palette[::-1])
+    plt.xlabel(feat_str); plt.ylabel('# proteins'); plt.xlim(*feat_range)
+
+    # plot sidebar
+    ax = fig.add_subplot(gs[0, wdim - 1:])
+    cdf.loc[:, 'dummy'] = 0
+    sns.histplot(cdf, x='dummy', hue='pred', stat='probability', multiple='fill',
+                 hue_order=['misclassified', 'correct'], linewidth=0, palette=palette, ax=ax)
+    plt.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
+    ax.yaxis.tick_right()
+    ax.yaxis.set_label_position("right")
+    plt.xlabel('')
+    plt.ylabel('fraction')
+    plt.tight_layout()
+    ax.get_legend().remove()
     return fig
 
 
@@ -66,6 +86,19 @@ summary_df = pd.DataFrame({'correct': [len(result_df.query('pred == "correct"'))
 summary_df.to_csv(f'{out_dir}accuracy_summary.csv')
 
 # --- plot entire set ---
+
+fig = plot_abs_barhist(result_df, 'seq_len', 'sequence length', (1, 1500))
+plt.savefig(f'{out_dir}seqlen_vs_cls_abs.svg', dpi=400)
+plt.close(fig)
+
+fig = plot_abs_barhist(result_df, 'nb_fragments', '# fragments', (1, 50))
+plt.savefig(f'{out_dir}nfrag_vs_cls_abs.svg', dpi=400)
+plt.close(fig)
+
+fig = plot_abs_barhist(result_df, 'mw', 'weight (Da)', (0, 50000))
+plt.savefig(f'{out_dir}mw_vs_cls_abs.svg', dpi=400)
+plt.close(fig)
+
 fig = plot_barhist(result_df, 'seq_len')
 fig.gca().set_xlabel('sequence length'); fig.gca().set_ylabel('fraction')
 plt.savefig(f'{out_dir}seqlen_vs_cls.svg', dpi=400)
