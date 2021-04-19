@@ -109,7 +109,7 @@ elif args.mode in ('perfect_db', 'perfect_db_range'):
         target_rule = f'''
 rule target:
     input:
-        f'{out_dir}resolution{args.resolution}_catch_rate{args.catch_rate}_efficiency{args.efficiency}_{args.soma_cr}/plots/0/classification_eval.csv'
+        f'{out_dir}resolution{args.resolution}_catch_rate{args.catch_rate}_efficiency{args.efficiency}_somacr{args.soma_cr}/plots/0/classification_eval.csv'
         '''
     elif args.mode == 'perfect_db_range':
         # Option 4: as option 3, but run for range of resolutions, efficiencies and soma_cr values
