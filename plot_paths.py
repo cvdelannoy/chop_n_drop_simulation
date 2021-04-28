@@ -7,6 +7,7 @@ from math import inf
 from scipy.stats import norm
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
+from matplotlib.collections import LineCollection
 
 import seaborn as sns
 # from scipy.spatial.distance import euclidean
@@ -25,6 +26,7 @@ sys.path.append(__location__)
 
 from helpers import parse_output_dir
 
+palette = ['#fbb4ae', '#ccebc5']
 
 def get_sigma(p, res):
     """
@@ -33,22 +35,62 @@ def get_sigma(p, res):
     return -1 * res / norm.ppf(p * 0.5, 0, 1)
 
 
-def plot_heatmap(val_mat, path_mat, fp, db_fp, fp_id, db_id):
+def get_lc_tuples(fp, y_pos):
+    sp = 50 # spacing
+    fp_cs = np.cumsum(np.concatenate(([0], fp)))
+    fp_segments = [[(f1 + sp, y_pos), (f2 - sp, y_pos)] for f1, f2 in zip(fp_cs[:-1], fp_cs[1:])]
+    return fp_segments
 
+
+def plot_heatmap(val_mat, path_mat, fp, db_fp, fp_id, db_id):
+    # pm_abs = np.abs(path_mat)
     pm_bin = np.zeros(path_mat.shape[1:], dtype=int)
     i, j = [x-1 for x in pm_bin.shape]
     pm_bin[-1, -1] = 1
     pp = (i, j)
-    # while i > 0 or j > 0:
     while i != -1 or j != -1:
         pm_bin[pp[0], pp[1]] = 1
-        # pm_bin[i, j] = 1
         pp = (i, j)
-        i, j = path_mat[:, i, j]
+        i, j = path_mat[:2, i, j]
     else:
-        # pm_bin[i,j] = 1
         pm_bin[pp[0], pp[1]] = 1
 
+    # --- line collection plot ---
+    lineplot_lim = 15000
+    sp = 100 # spacing
+    ls_list = []
+
+    # fingerprint lines
+    fp_segments = get_lc_tuples(fp, 1)
+    dbfp_segments = get_lc_tuples(db_fp, 0)
+    col = palette[1] if db_id == fp_id else palette[0]
+    ls_list.extend([LineCollection(fp_segments, colors=len(fp_segments) * ['black'], linewidths=2),
+                    LineCollection(dbfp_segments, colors=len(dbfp_segments) * [col], linewidths=2)])
+
+    # alignment lines
+    aln_list = []
+    for i, fps in enumerate(fp_segments):
+        pmb = pm_bin[i, :]
+        if pmb.sum() > 0:
+            p1 = fps[1] + np.array([sp * 0.5, 0])
+            p2 = dbfp_segments[np.argwhere(pmb > 0)[0,0]][1] + np.array([sp * 0.5,0])
+            aln_list.append([p1, p2])
+    ls_list.append(LineCollection(aln_list, colors=len(aln_list) * ['black'],
+                                  linewidths=1, linestyles=len(aln_list) * ['--']))
+
+    ln_fig, ax = plt.subplots(1, 1, figsize=(10, 1.5))
+    for ls in ls_list: ax.add_collection(ls)
+    # ax.autoscale()
+    plt.xlim([0,lineplot_lim])
+    plt.ylim([-0.2, 1.2])
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    ax.set_xlabel('Weight (Da)')
+    plt.yticks(list(range(2)), [f'DB: {db_id}', f'Query: {fp_id}'])
+    plt.tight_layout()
+
+    # --- matrix plot ---
     fig, ax = plt.subplots(1, 1, figsize=(10, 10))
     sns.heatmap(pm_bin.astype(float), cbar=False, square=True, annot=False, cmap=sns.color_palette("coolwarm", as_cmap=True),
                 center=0.5, vmin=0, vmax=1,
@@ -57,8 +99,8 @@ def plot_heatmap(val_mat, path_mat, fp, db_fp, fp_id, db_id):
                 annot_kws={'color': 'white', 'fontweight': 'bold'}, # fmt='',
                 cmap=ListedColormap(['black']), ax=ax, xticklabels=db_fp.astype(str),
                 yticklabels=fp.astype(int).astype(str))
-    ax.set_xlabel(f'query: {db_id}'); ax.set_ylabel(f'DB: {fp_id}')
-    return fig
+    ax.set_ylabel(f'query: {db_id}'); ax.set_xlabel(f'DB: {fp_id}')
+    return fig, ln_fig
 
 
 def classify_fingerprints(target_dict, db, cdf, algo, soma_cr, sigma, plot_path, save_matching_fps=False):
@@ -71,7 +113,6 @@ def classify_fingerprints(target_dict, db, cdf, algo, soma_cr, sigma, plot_path,
             rd_out[tid] = []
             continue
 
-        top3 = [(inf, None)] * 3
         # define search range in number of fragments: 50% shorter/longer, min 1
         fp_len = len(fp)
         d_sr = max(int(fp_len * 0.5), 2)
@@ -100,18 +141,22 @@ def classify_fingerprints(target_dict, db, cdf, algo, soma_cr, sigma, plot_path,
             cur_path = plot_path + 'incorrect/'
             if len(true_idx):
                 score_mat, path_mat = plt_dict[true_idx[0]][true_idx[1]]
-                fig = plot_heatmap(score_mat, path_mat,
+                fig, ln_fig = plot_heatmap(score_mat, path_mat,
                                    fp, db[true_idx[0]].loc[
                                        true_idx[1], [f'ss{i}' for i in range(true_idx[0])]].to_numpy().astype(int),
                                    tid, tid)
                 fig.savefig(f'{cur_path}{tid}_correct.svg')
+                ln_fig.savefig(f'{cur_path}{tid}_correct_lnplot.svg')
                 plt.close(fig)
+                plt.close(ln_fig)
         score_mat, path_mat = plt_dict[top_idx[0][0]][top_idx[0][1]]
-        fig = plot_heatmap(score_mat, path_mat,
+        fig, ln_fig = plot_heatmap(score_mat, path_mat,
                            fp, db[top_idx[0][0]].loc[top_idx[0][1], [f'ss{i}' for i in range(top_idx[0][0])]].to_numpy().astype(int),
                            tid, top_ids[0])
         fig.savefig(f'{cur_path}{tid}_vs_{top_ids[0]}.svg')
+        ln_fig.savefig(f'{cur_path}{tid}_vs_{top_ids[0]}_lnfig.svg')
         plt.close(fig)
+        plt.close(ln_fig)
 
         rd_out[tid] = top_ids
         cdf.loc[:, 'dtw_score'] = np.nan

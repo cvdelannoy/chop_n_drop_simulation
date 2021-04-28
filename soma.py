@@ -62,7 +62,9 @@ def soma_like(s1, s2, gp, sd2, return_trace=False):
 
 @njit()
 def soma_like_njit(s1, s2, gp, sd2, return_trace=False):
-    gp = 1.96 ** 2 * sd2
+    # gp = 1.96 ** 2 * sd2
+    gp = 1.96 * sd2 ** 0.5 + 500
+
     pad = np.array([np.inf, np.inf])
     s1 = np.append(pad, s1)
     s2 = np.append(pad, s2)
@@ -72,44 +74,47 @@ def soma_like_njit(s1, s2, gp, sd2, return_trace=False):
     l2 = s2.shape[0]
     cum_sum = np.full((l1, l2), np.inf)
     cum_sum[1, 1] = 0.
-    tp = np.full((2, l1, l2), 0)
+    tp = np.full((3, l1, l2), 0)
 
     for i in range(2, l1):
         for j in range(2, l2):
-            # steps = np.array([
-            #     (s1[i] - s2[j]) ** 2 + cum_sum[i-1, j-1],
-            #     (s1[i] + s1[i-1] - s2[j]) ** 2 + min(cum_sum[i-2, j-1]),
-            #     (s1[i] - s2[j] - s2[j-1]) ** 2 + min(cum_sum[i-1, j-2]),
-            #     (s1[i] - s2[j]) ** 2 + gp + min(cum_sum[i-2, j-1]),
-            #     (s1[i] - s2[j]) ** 2 + gp + min(cum_sum[i-1, j-2]),
-            # ])
             steps = np.array([
-                (s1[i] - s2[j]) ** 2 + cum_sum[i - 1, j - 1],
-                (s1[i] + s1[i - 1] - s2[j]) ** 2 + cum_sum[i - 2, j - 1],
-                (s1[i] - s2[j] - s2[j - 1]) ** 2 + cum_sum[i - 1, j - 2],
-                (s1[i] - s2[j]) ** 2 + gp + cum_sum[i - 2, j - 1],
-                (s1[i] - s2[j]) ** 2 + gp + cum_sum[i - 1, j - 2],
+                np.abs(s1[i] - s2[j]) + cum_sum[i - 1, j - 1],
+                # np.abs(s1[i] + s1[i - 1] - s2[j]) + cum_sum[i - 2, j - 1],
+                np.abs(s1[i] - s2[j] - s2[j - 1]) + cum_sum[i - 1, j - 2],
+                np.abs(s1[i] - s2[j]) + gp + cum_sum[i - 2, j - 1],
+                np.abs(s1[i] - s2[j]) + gp + cum_sum[i - 1, j - 2],
             ])
             cum_sum[i,j] = np.min(steps)
             if return_trace:
                 wi = np.argmin(steps)
                 if wi == 0:
-                    tp[:, i, j] = (i-1, j-1)
+                    tp[:2, i, j] = (i-1, j-1)
+                # elif wi == 1:
+                #     tp[:, i, j] = (i-2, j-1)
                 elif wi == 1:
-                    tp[:, i, j] = (i-2, j-1)
+                    tp[:2, i, j] = (i-1, j-2)
                 elif wi == 2:
-                    tp[:, i, j] = (i-1, j-2)
-                elif wi == 3:
-                    tp[:, i, j] = (i-2, j-1)
+                    tp[:2, i, j] = (i-2, j-1)
+                    tp[2, i, j] = 1
                 else:
-                    tp[:, i, j] = (i-1, j-2)
-    cum_sum[-1,-1] = np.min(np.array([cum_sum[-1,-1],
-                               (s1[-1] - s2[-2]) ** 2 + gp + cum_sum[-1, -2],
-                               (s1[-2] - s2[-1]) ** 2 + gp + cum_sum[-2, -1]
-                               ]))
-    return cum_sum[2:, 2:], tp[:, 2:, 2:] - 2
-
-
+                    tp[:2, i, j] = (i-1, j-2)
+                    tp[2, i, j] = 2
+    steps = np.array([cum_sum[-1, -1],
+                      np.abs(s1[-2] - s2[-1]) + gp + cum_sum[-2, -1],
+                      np.abs(s1[-1] - s2[-2]) + gp + cum_sum[-1, -2]
+                      ])
+    wi = np.argmin(steps)
+    cum_sum[-1,-1] = np.min(steps)
+    if return_trace:
+        if wi == 1:
+            tp[:2, -1, -1] = (l1 - 2, l2 - 1)
+            tp[2, -1, -1] = 1
+        elif wi == 2:
+            tp[:2, -1, -1] = (l1 - 1, l2 - 2)
+            tp[2, -1, -1] = 2
+        tp[:2, :, :] -= 2
+    return cum_sum[2:, 2:], tp[:, 2:, 2:]
 
 
 # --- soma-dtw implementation ---
