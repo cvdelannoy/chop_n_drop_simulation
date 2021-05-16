@@ -62,7 +62,14 @@ def soma_like(s1, s2, gp, sd2, return_trace=False):
 
 @njit()
 def soma_like_njit(s1, s2, gp, sd2, return_trace=False):
-    # gp = 1.96 ** 2 * sd2
+    """
+    custom alignment procedure for chop-n-drop fingerprints.
+    Optionally, return path as 3 x len(s1) x len(s2) matrix. First dim also includes code for gaps:
+    0: match
+    1: double alignment s2 to s1
+    2: gap s1
+    3: gap s2
+    """
     gp = 1.96 * sd2 ** 0.5 + 500
 
     pad = np.array([np.inf, np.inf])
@@ -94,12 +101,13 @@ def soma_like_njit(s1, s2, gp, sd2, return_trace=False):
                 #     tp[:, i, j] = (i-2, j-1)
                 elif wi == 1:
                     tp[:2, i, j] = (i-1, j-2)
+                    tp[2, i, j] = 1
                 elif wi == 2:
                     tp[:2, i, j] = (i-2, j-1)
-                    tp[2, i, j] = 1
+                    tp[2, i, j] = 2
                 else:
                     tp[:2, i, j] = (i-1, j-2)
-                    tp[2, i, j] = 2
+                    tp[2, i, j] = 3
     steps = np.array([cum_sum[-1, -1],
                       np.abs(s1[-2] - s2[-1]) + gp + cum_sum[-2, -1],
                       np.abs(s1[-1] - s2[-2]) + gp + cum_sum[-1, -2]
@@ -109,10 +117,10 @@ def soma_like_njit(s1, s2, gp, sd2, return_trace=False):
     if return_trace:
         if wi == 1:
             tp[:2, -1, -1] = (l1 - 2, l2 - 1)
-            tp[2, -1, -1] = 1
+            tp[2, -1, -1] = 2
         elif wi == 2:
             tp[:2, -1, -1] = (l1 - 1, l2 - 2)
-            tp[2, -1, -1] = 2
+            tp[2, -1, -1] = 3
         tp[:2, :, :] -= 2
     return cum_sum[2:, 2:], tp[:, 2:, 2:]
 

@@ -10,8 +10,6 @@ from matplotlib.colors import ListedColormap
 from matplotlib.collections import LineCollection
 
 import seaborn as sns
-# from scipy.spatial.distance import euclidean
-# from fastdtw import fastdtw
 from soma import align
 try:
     import pickle5 as pickle
@@ -27,6 +25,7 @@ sys.path.append(__location__)
 from helpers import parse_output_dir
 
 palette = ['#fbb4ae', '#ccebc5']
+palette = ['#fbb4ae', '#4d9221']
 
 def get_sigma(p, res):
     """
@@ -43,17 +42,29 @@ def get_lc_tuples(fp, y_pos):
 
 
 def plot_heatmap(val_mat, path_mat, fp, db_fp, fp_id, db_id):
-    # pm_abs = np.abs(path_mat)
+    aln_tups = []
+    fp_gaps, dbfp_gaps = np.zeros(len(fp), dtype=bool), np.zeros(len(db_fp), dtype=bool)
     pm_bin = np.zeros(path_mat.shape[1:], dtype=int)
-    i, j = [x-1 for x in pm_bin.shape]
-    pm_bin[-1, -1] = 1
-    pp = (i, j)
+    g_list = []
+    pm_bin[-1,-1] = 1
+    i, j, g = path_mat[:, -1,-1]
+    offset = 1
     while i != -1 or j != -1:
-        pm_bin[pp[0], pp[1]] = 1
-        pp = (i, j)
-        i, j = path_mat[:2, i, j]
-    else:
-        pm_bin[pp[0], pp[1]] = 1
+        pm_bin[i, j] = 1
+        if g == 0:
+            aln_tups.extend([((i+offset, 0), (j+offset, 0)), ((i+offset, 1), (j+offset, 1))])
+        if g == 1:
+            aln_tups.extend([((i+offset, 0), (j+offset, 0)), ((i+offset, 1), (j+1+offset, 1))])
+            pm_bin[i+1,j+1] = 1  # 2-to-1 alignment
+        elif g == 2:
+            fp_gaps[i+1] = True
+            aln_tups.extend([((i+offset, 0), (j-1+offset, 1)), ((i+offset, 1), (j-1+offset, 1))])
+        elif g == 3:
+            dbfp_gaps[j+1] = True
+            aln_tups.extend([((i-1+offset, 1), (j+offset, 0)), ((i-1+offset, 1), (j+offset, 1))])
+
+        g_list.append(g)
+        i, j, g = path_mat[:, i, j]
 
     # --- line collection plot ---
     lineplot_lim = 15000
@@ -64,17 +75,22 @@ def plot_heatmap(val_mat, path_mat, fp, db_fp, fp_id, db_id):
     fp_segments = get_lc_tuples(fp, 1)
     dbfp_segments = get_lc_tuples(db_fp, 0)
     col = palette[1] if db_id == fp_id else palette[0]
-    ls_list.extend([LineCollection(fp_segments, colors=len(fp_segments) * ['black'], linewidths=2),
-                    LineCollection(dbfp_segments, colors=len(dbfp_segments) * [col], linewidths=2)])
+    fp_segments_gaps = [s for s, sb in zip(fp_segments, fp_gaps) if sb]
+    fp_segments_true = [s for s, sb in zip(fp_segments, fp_gaps) if not sb]
+    dbfp_segments_gaps = [s for s, sb in zip(dbfp_segments, dbfp_gaps) if sb]
+    dbfp_segments_true = [s for s, sb in zip(dbfp_segments, dbfp_gaps) if not sb]
+    ls_list.extend([LineCollection(fp_segments_gaps, colors=len(fp_segments_gaps) * ['black'], alpha=0.5, linewidths=2),
+                    LineCollection(fp_segments_true, colors=len(fp_segments_true) * ['black'], alpha=1.0, linewidths=2),
+                    LineCollection(dbfp_segments_gaps, colors=len(dbfp_segments_gaps) * [col], alpha=0.5, linewidths=2),
+                    LineCollection(dbfp_segments_true, colors=len(dbfp_segments_true) * [col], alpha=1.0, linewidths=2)
+                    ])
 
     # alignment lines
     aln_list = []
-    for i, fps in enumerate(fp_segments):
-        pmb = pm_bin[i, :]
-        if pmb.sum() > 0:
-            p1 = fps[1] + np.array([sp * 0.5, 0])
-            p2 = dbfp_segments[np.argwhere(pmb > 0)[0,0]][1] + np.array([sp * 0.5,0])
-            aln_list.append([p1, p2])
+    fp_coords = np.vstack((np.cumsum(np.concatenate(([0], fp[:-1]))), np.cumsum(fp))).T
+    dbfp_coords = np.vstack((np.cumsum(np.concatenate(([0], db_fp[:-1]))), np.cumsum(db_fp))).T
+    for at in aln_tups: aln_list.append([(fp_coords[at[0]], 1), (dbfp_coords[at[1]], 0)])
+
     ls_list.append(LineCollection(aln_list, colors=len(aln_list) * ['black'],
                                   linewidths=1, linestyles=len(aln_list) * ['--']))
 
@@ -99,7 +115,7 @@ def plot_heatmap(val_mat, path_mat, fp, db_fp, fp_id, db_id):
                 annot_kws={'color': 'white', 'fontweight': 'bold'}, # fmt='',
                 cmap=ListedColormap(['black']), ax=ax, xticklabels=db_fp.astype(str),
                 yticklabels=fp.astype(int).astype(str))
-    ax.set_ylabel(f'query: {db_id}'); ax.set_xlabel(f'DB: {fp_id}')
+    ax.set_ylabel(f'query: {fp_id}'); ax.set_xlabel(f'DB: {db_id}')
     return fig, ln_fig
 
 

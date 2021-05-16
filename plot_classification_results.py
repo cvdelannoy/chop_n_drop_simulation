@@ -75,7 +75,7 @@ target_df = pd.concat(target_dict.values())
 result_df = pd.DataFrame(index=list(classify_dict), columns=['mw', 'seq_len', 'nb_fragments', 'pred'])
 for pid in classify_dict:
     if not len(classify_dict[pid]): pred = 'misclassified'
-    elif classify_dict[pid][0] == pid: pred = 'correct'
+    elif classify_dict[pid][0][0] == pid: pred = 'correct'
     # elif pid in classify_dict[pid][:3]: pred = 'top3'
     else: pred = 'misclassified'
     result_df.loc[pid, :] = target_df.loc[pid].to_list() + [pred]

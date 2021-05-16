@@ -48,9 +48,10 @@ def classify_fingerprints(target_dict, db, cdf, algo, soma_cr, sigma, save_match
                 cdf.loc[(nbf, cidx), 'dtw_score'] = align(
                     fp, db[nbf].loc[cidx, [f'ss{i}' for i in range(nbf)]].to_numpy().astype(np.float),
                     algo, soma_cr, soma_cr, sd2)
-        top_idx = cdf.sort_values(['dtw_score'], ascending=True).iloc[:5, :].index
+        cdf_top = cdf.sort_values(['dtw_score'], ascending=True).iloc[:5, :]
+        top_idx, top_scores = cdf_top.index, cdf_top.dtw_score.to_list()
         top_ids = [db[i1].loc[i2, 'seq_id'] for i1, i2, in top_idx]
-        rd_out[tid] = top_ids
+        rd_out[tid] = {idx: (tid, tsc) for idx, (tid, tsc) in enumerate(zip(top_ids, top_scores))}
         cdf.loc[:, 'dtw_score'] = np.nan
         if save_matching_fps:
             matching_fps[tid] = {f'{top_ids[ii]}_{ii}': db[i1].loc[i2, [f'ss{i}' for i in range(i1)]].to_list() for ii, (i1, i2) in enumerate(top_idx[:3].to_list())}
