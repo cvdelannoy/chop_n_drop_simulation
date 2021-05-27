@@ -53,6 +53,7 @@ def gapped_nw_njit(s1, s2, gp):
             cum_sum[i+1, j+1, 0] = steps[wi]
     return cum_sum[1:, 1:, 0], tp[:, 1:, 1:] - 1
 
+
 def soma_like(s1, s2, gp, sd2, return_trace=False):
     cs, tp = soma_like_njit(s1, s2, gp, sd2, return_trace)
     if return_trace:
@@ -75,8 +76,6 @@ def soma_like_njit(s1, s2, gp, sd2, return_trace=False):
     pad = np.array([np.inf, np.inf])
     s1 = np.append(pad, s1)
     s2 = np.append(pad, s2)
-    # s1 = np.concatenate([np.tile(np.inf, 2), s1])
-    # s2 = np.concatenate([np.tile(np.inf, 2), s2])
     l1 = s1.shape[0]
     l2 = s2.shape[0]
     cum_sum = np.full((l1, l2), np.inf)
@@ -87,7 +86,6 @@ def soma_like_njit(s1, s2, gp, sd2, return_trace=False):
         for j in range(2, l2):
             steps = np.array([
                 np.abs(s1[i] - s2[j]) + cum_sum[i - 1, j - 1],
-                # np.abs(s1[i] + s1[i - 1] - s2[j]) + cum_sum[i - 2, j - 1],
                 np.abs(s1[i] - s2[j] - s2[j - 1]) + cum_sum[i - 1, j - 2],
                 np.abs(s1[i] - s2[j]) + gp + cum_sum[i - 2, j - 1],
                 np.abs(s1[i] - s2[j]) + gp + cum_sum[i - 1, j - 2],
@@ -97,8 +95,6 @@ def soma_like_njit(s1, s2, gp, sd2, return_trace=False):
                 wi = np.argmin(steps)
                 if wi == 0:
                     tp[:2, i, j] = (i-1, j-1)
-                # elif wi == 1:
-                #     tp[:, i, j] = (i-2, j-1)
                 elif wi == 1:
                     tp[:2, i, j] = (i-1, j-2)
                     tp[2, i, j] = 1
@@ -126,44 +122,14 @@ def soma_like_njit(s1, s2, gp, sd2, return_trace=False):
 
 
 # --- soma-dtw implementation ---
-
-
-# @njit(nogil=True)
+@njit(nogil=True)
 def soma_dtw(s1, s2, cr, sd):
     cum_sum = njit_accumulated_matrix_soma_dtw(s1, s2, cr, sd)
     if cum_sum.shape[1] == 0:
         return -1 * np.inf
     return cum_sum[-1, -1]
-#
-#
-# def njit_accumulated_matrix_soma_path(s1, s2, cr, sd, s2_len_variable=True):
-#     l1 = s1.shape[0]
-#     l2 = s2.shape[0]
-#     cum_sum = np.full((l1 + 1, l2 + 1), -1 * np.inf)
-#     cum_sum[0, 0] = 0.
-#     pth = []
-#
-#     if s2_len_variable:
-#         # assume db fingerprint can have missing restrictions
-#         for i in range(1, l1 + 1):
-#             for j in range(1, l2 + 1):
-#                 bm = -1 * np.inf
-#                 candidate_list = []
-#                 for l in range(max(0, j - 2), j):
-#                     for k in range(max(0, i - 2), i):
-#                         candidate_list.append(soma_dist(s1[k:i], s2[l:j], cr, sd) + cum_sum[k, l])
-#                 cum_sum[i, j] = bm
-#                 tst = []
-#     else:
-#         # assume db fingerprint CANNOT have missing restrictions
-#         for i in range(1, l1+1):
-#             for j in range(1, l2+1):
-#                 bm = -1 * np.inf
-#                 for l in range(max(0, j-3), j):
-#                         candidate = soma_dist(s1[i-1:i], s2[l:j], cr, sd) + cum_sum[i-1, l]
-#                         bm = max(candidate, bm)
-#     return cum_sum[1:, 1:], pth
-#
+
+
 @njit()
 def njit_accumulated_matrix_soma_dtw(s1, s2, cr, sd, s2_len_variable=True):
     l1 = s1.shape[0]
@@ -202,12 +168,6 @@ def soma_dtw_dist(s1, s2, cr, sd):
     dist = cr * abs(s1.shape[0] - s2.shape[0])  # HIGHER if difference exists
     dist += njit_dtw(s1, s2)  # HIGHER for bigger difference
     return dist
-#
-# @njit()
-# def soma_dist(s1, s2, cr, sd):
-#     dist = -1 * cr * abs(s1.shape[0] - s2.shape[0])  # LOWER if difference exists
-#     dist -= njit_dtw(s1, s2)  # LOWER for bigger difference
-#     return dist
 
 
 # --- block_punishing soma ---
@@ -218,7 +178,6 @@ def soma_alt(s1, s2, cr, sd2, track_path=False):
     if cum_sum.shape[1] == 0:
         return np.inf
     return cum_sum[-1, -1]
-    # return cum_sum[-1, -1]
 
 
 # --- vanilla soma ---
@@ -331,6 +290,7 @@ def _local_squared_dist_skip(x, y):
     diff = x - y
     dist = diff * diff
     return dist
+
 
 # --- other utilities ---
 @njit(fastmath=True)

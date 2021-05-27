@@ -199,7 +199,8 @@ def classify_fingerprints_parallel(target_dict, db, cdf, algo,  soma_cr, sd2, pl
     out_queue.put(out_dict)
 
 
-parser = argparse.ArgumentParser(description='Return most likely classification for given db and targets, according to dtw score')
+parser = argparse.ArgumentParser(description='Classify fingerprints by aligning to database and plot alignment paths. '
+                                             'If classification is incorrect, also plot path for correct alignment.')
 parser.add_argument('--db', type=str, required=True)
 parser.add_argument('--targets', type=str, required=True)
 parser.add_argument('--out-pkl', type=str, required=True)

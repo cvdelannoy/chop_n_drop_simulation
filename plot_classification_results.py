@@ -36,7 +36,7 @@ def plot_abs_barhist(cdf, feat, feat_str, feat_range):
     # Plot main histogram
     ax = fig.add_subplot(gs[0, :wdim - 1])
     target_dict = {cl: sdf.loc[:, feat].to_numpy() for cl, sdf in cdf.groupby('pred')}
-    target_dict = {cl: target_dict[cl] for cl in ('correct', 'misclassified')}
+    target_dict = {cl: target_dict.get(cl, np.array([])) for cl in ('correct', 'misclassified')}
     ax.hist(target_dict.values(), 30, stacked=True, range=feat_range, color=palette[::-1])
     plt.xlabel(feat_str); plt.ylabel('# proteins'); plt.xlim(*feat_range)
 
@@ -53,6 +53,25 @@ def plot_abs_barhist(cdf, feat, feat_str, feat_range):
     plt.tight_layout()
     ax.get_legend().remove()
     return fig
+
+def plot_abs_barhist_w_pie(cdf, feat, feat_str, feat_range, fn):
+
+    # Plot main histogram
+    fig1, ax = plt.subplots(figsize=(8.25, 2.9375))
+    target_dict = {cl: sdf.loc[:, feat].to_numpy() for cl, sdf in cdf.groupby('pred')}
+    target_dict = {cl: target_dict.get(cl, np.array([])) for cl in ('correct', 'misclassified')}
+    ax.hist(target_dict.values(), 30, stacked=True, range=feat_range, color=palette[::-1])
+    plt.xlabel(feat_str); plt.ylabel('# proteins'); plt.xlim(*feat_range)
+    fig1.savefig(f'{fn}.svg', dpi=400)
+    plt.close(fig1)
+
+    # Plot pie chart
+    fig2, ax = plt.subplots(figsize=(8.25, 2.9375))
+    pie_list = [len(cdf.query('pred == "correct"'))]
+    pie_list.append(len(cdf) - pie_list[0])
+    plt.pie(pie_list, colors=palette[::-1])
+    fig2.savefig(f'{fn}_pie.svg', dpi=400)
+    plt.close(fig2)
 
 
 parser = argparse.ArgumentParser(description='Ṕlot output of classify.py')
@@ -86,18 +105,9 @@ summary_df = pd.DataFrame({'correct': [len(result_df.query('pred == "correct"'))
 summary_df.to_csv(f'{out_dir}accuracy_summary.csv')
 
 # --- plot entire set ---
-
-fig = plot_abs_barhist(result_df, 'seq_len', 'sequence length', (1, 1500))
-plt.savefig(f'{out_dir}seqlen_vs_cls_abs.svg', dpi=400)
-plt.close(fig)
-
-fig = plot_abs_barhist(result_df, 'nb_fragments', '# fragments', (1, 50))
-plt.savefig(f'{out_dir}nfrag_vs_cls_abs.svg', dpi=400)
-plt.close(fig)
-
-fig = plot_abs_barhist(result_df, 'mw', 'weight (Da)', (0, 50000))
-plt.savefig(f'{out_dir}mw_vs_cls_abs.svg', dpi=400)
-plt.close(fig)
+plot_abs_barhist_w_pie(result_df, 'seq_len', 'sequence length', (1, 1500), f'{out_dir}seqlen_vs_cls_abs')
+plot_abs_barhist_w_pie(result_df, 'nb_fragments', '# fragments', (1, 50), f'{out_dir}nfrag_vs_cls_abs')
+plot_abs_barhist_w_pie(result_df, 'mw', 'weight (Da)', (0, 50000), f'{out_dir}mw_vs_cls_abs')
 
 fig = plot_barhist(result_df, 'seq_len')
 fig.gca().set_xlabel('sequence length'); fig.gca().set_ylabel('fraction')

@@ -10,7 +10,8 @@ from sklearn.mixture import GaussianMixture
 from helpers import parse_output_dir
 
 parser = argparse.ArgumentParser(description='Plot target fingerprints and found matches as spike trains')
-parser.add_argument('--in-pkl', type=str,required=True)
+parser.add_argument('--in-pkl', type=str,required=True,
+                    help='classified_X_matching_fps.pkl produced by classify.py')
 parser.add_argument('--dynamic-range', type=float, nargs=2, default=[500, 2000])
 parser.add_argument('--out-dir', type=str, required=True)
 args = parser.parse_args()

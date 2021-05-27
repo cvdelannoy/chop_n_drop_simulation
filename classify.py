@@ -1,18 +1,14 @@
-import argparse, os, sys
+import argparse
 from os.path import splitext
 import numpy as np
 import pandas as pd
-from tslearn.metrics import dtw
 from math import inf
 from scipy.stats import norm
-# from scipy.spatial.distance import euclidean
-# from fastdtw import fastdtw
 from soma import align
 try:
     import pickle5 as pickle
 except:
     import pickle
-from datetime import datetime
 from itertools import chain
 import multiprocessing as mp
 
@@ -57,14 +53,6 @@ def classify_fingerprints(target_dict, db, cdf, algo, soma_cr, sigma, save_match
             matching_fps[tid] = {f'{top_ids[ii]}_{ii}': db[i1].loc[i2, [f'ss{i}' for i in range(i1)]].to_list() for ii, (i1, i2) in enumerate(top_idx[:3].to_list())}
             matching_fps[tid]['target'] = fp
 
-        # if tid != top_ids[0]:
-        #     tt = db[top_idx[0][0]].loc[top_idx[0][1]]
-        #     bp = tt.loc[[f'ss{i}' for i in range(top_idx[0][0])]].to_numpy().astype(np.float)
-        #     # get real fingerprint
-        #     full_db = pd.concat([db[di] for di in db])
-        #     rp = full_db.query(f'seq_id == "{tid}"')
-        #     tfp = rp[[f'ss{i}' for i in range(len(fp))]].to_numpy().squeeze()
-        #     cp=1
     if save_matching_fps:
         return rd_out, matching_fps
     return rd_out
