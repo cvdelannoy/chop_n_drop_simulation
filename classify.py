@@ -2,9 +2,8 @@ import argparse
 from os.path import splitext
 import numpy as np
 import pandas as pd
-from math import inf
 from scipy.stats import norm
-from soma import align
+from alignment_algorithms import align
 try:
     import pickle5 as pickle
 except:
@@ -30,7 +29,6 @@ def classify_fingerprints(target_dict, db, cdf, algo, soma_cr, sigma, save_match
             rd_out[tid] = []
             continue
 
-        top3 = [(inf, None)] * 3
         # define search range in number of fragments: 50% shorter/longer, min 1
         fp_len = len(fp)
         d_sr = max(int(fp_len * 0.5), 2)
@@ -70,8 +68,8 @@ parser.add_argument('--out-pkl', type=str, required=True)
 parser.add_argument('--resolution', type=float, required=True)
 parser.add_argument('--save-matching-fps', action='store_true')
 parser.add_argument('--soma-cr', type=float, default=4.0)
-parser.add_argument('--algorithm', type=str, choices=['dtw', 'soma', 'soma_alt', 'soma_dtw', 'gapped_nw', 'soma_like'], default='soma',
-                    help='Define which method to use to determine distance between fingerprints [default:soma]')
+parser.add_argument('--algorithm', type=str, choices=['dtw', 'soma', 'soma_alt', 'soma_dtw', 'gapped_nw', 'cnd'], default='cnd',
+                    help='Define which method to use to determine distance between fingerprints [default: cnd]')
 parser.add_argument('--cores', type=int, default=4)
 
 args = parser.parse_args()

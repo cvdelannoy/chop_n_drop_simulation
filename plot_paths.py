@@ -10,7 +10,7 @@ from matplotlib.colors import ListedColormap
 from matplotlib.collections import LineCollection
 
 import seaborn as sns
-from soma import align
+from alignment_algorithms import align
 try:
     import pickle5 as pickle
 except:
@@ -208,8 +208,8 @@ parser.add_argument('--plot-dir', type=str, required=True)
 parser.add_argument('--resolution', type=float, required=True)
 parser.add_argument('--save-matching-fps', action='store_true')
 parser.add_argument('--soma-cr', type=float, default=4.0)
-parser.add_argument('--algorithm', type=str, choices=['dtw', 'soma', 'soma_alt', 'soma_dtw', 'gapped_nw', 'soma_like'], default='soma',
-                    help='Define which method to use to determine distance between fingerprints [default:soma]')
+parser.add_argument('--algorithm', type=str, choices=['cnd', 'dtw', 'soma', 'soma_alt', 'soma_dtw', 'gapped_nw', 'soma_like'], default='cnd',
+                    help='Define which method to use to determine distance between fingerprints [default: cnd]')
 parser.add_argument('--cores', type=int, default=4)
 
 args = parser.parse_args()

@@ -16,35 +16,33 @@ parser.add_argument('--fasta-dir', type=str, required=False)
 parser.add_argument('--db', type=str, required=False,
                     help='Use provided pickled db instead of creating one with given fastas')
 
+# --- noise parameters ---
+parser.add_argument('--efficiency', type=float, default=0.99,
+                    help='Cleaving efficiency of enzyme. [default: 0.99]')
+parser.add_argument('--resolution', type=float, default=5,
+                    help='Weight resolution in Da [default: 5]')
+parser.add_argument('--catch-rate', type=float, default=0.99,
+                    help='Define what fraction of fragments are caught [default: 0.99]')
+parser.add_argument('--efficiency-range', type=float, nargs='+', default=[0.8, 0.85, 0.9, 0.95, 0.99],
+                    help='If mode=perfect_db_range, range of efficiencies to test [default: 0.8 0.85 0.9 0.95 0.99]')
+parser.add_argument('--res-range', nargs='+', type=float, default=[5, 25, 50, 75, 100],
+                    help='If mode=perfect_db_range, weight resolutions to test [default: 5 25 50 75 100]')
+parser.add_argument('--cr-range', type=float, nargs='+', default=[0.8, 0.85, 0.9, 0.95, 0.99],
+                    help='If mode=perfect_db_range, range of capture rates to test [default: 0.8 0.85 0.9 0.95 0.99].')
+
 # --- enzyme properties ---
 parser.add_argument('--enzyme', type=str, default='trypsin',
                     help='Enzyme with which to digest. [default: trypsin]')
-parser.add_argument('--efficiency', type=float, default=0.99,
-                    help='Cleaving efficiency of enzyme. [default: 1.0]')
-parser.add_argument('--efficiency-range', type=float, nargs='+', default=[0.75, 0.8, 0.85, 0.9, 0.95, 0.99],
-                    help='range of efficiencies if a ranged mode is used [default 0.75, 0.8, 0.85, 0.9, 0.95, 0.99]')
 parser.add_argument('--specificity', type=float, default=1.0,
                     help='Cleaving specificity of enzyme, 1 - the probability of cleaving at a random position [default: 1.0]')
 
 # --- pore properties ---
-parser.add_argument('--resolution', type=float, default=4,
-                    help='Weight resolution')
-parser.add_argument('--res-range', nargs='+', type=float, default=[4, 100, 200, 300, 400, 500],
-                    help='Weight resolution range to visit [default: 4, 100, 200, 300, 400, 500]')
 parser.add_argument('--dynamic-range', type=float, nargs=2, default=[500.0, 2000.0],
                     help='Lower and upper limit between which resolution is valid. Below lower limit,'
                          'particle is not registered, above higher limit it is registered at maximum weight.'
                          '[default: 500 2000]')
-parser.add_argument('--nb-range-steps', type=int, default=6,
-                    help='Number of steps to make in allowed range for res, catch rate and efficiency [default: 6]')
 parser.add_argument('--min-charge', type=float, default=-100,
                     help='Minimum charge in units at which fragments are still passing the pore. [default: -100]')
-parser.add_argument('--catch-rate', type=float, default=0.99,
-                    help='Alternative to ph/min charge; define what fraction of fragments are caught [default: 1.0]')
-parser.add_argument('--cr-range', type=float, nargs='+', default=[0.75, 0.8, 0.85, 0.9, 0.95, 0.99],
-                    help='Range between which to pick catch rates [default: 0.75 1.0].')
-parser.add_argument('--soma-cr', type=float, default=4.0)
-parser.add_argument('--soma-cr-range', type=float, nargs='+', default=[4.0, 10.0, 100.0])
 
 # --- target(altering) properties ---
 parser.add_argument('--ph', type=float, default=7.0,
@@ -52,13 +50,18 @@ parser.add_argument('--ph', type=float, default=7.0,
 parser.add_argument('--scrambled', action='store_true',
                     help='Ignore order of fragments in constructing fingerprint.')
 parser.add_argument('--repeats', type=int, default=5,
-                    help='Number of times digestion is repeated. [default: 5]')
+                    help='If mode=perfect_db_range, number of times digestion is repeated. [default: 5]')
 parser.add_argument('--subsampling-fraction', default=1.0, type=float,
                     help='When subsampling sequences for targets db, define what fraction is taken [default: 1.0]')
 
 # --- misc ---
-parser.add_argument('--algorithm', type=str, choices=['dtw', 'soma', 'soma_alt', 'gapped_nw', 'soma_like'], default='soma',
-                    help='Define which method to use to determine distance between fingerprints [default:soma]')
+parser.add_argument('--algorithm', type=str, choices=['cnd', 'dtw', 'soma', 'soma_alt', 'gapped_nw'], default='cnd',
+                    help='Define which method to use to determine distance between fingerprints [default: cnd]')
+parser.add_argument('--soma-cr', type=float, default=4.0,
+                    help='if algorithm is soma, parameter C. Does nothing for non-soma algorithms. [default: 4.0]')
+parser.add_argument('--soma-cr-range', type=float, nargs='+', default=[4.0],
+                    help='If mode=perfect_db_range, soma C parameter values to test [default: 4.0]')
+
 parser.add_argument('--cores', type=int, default=4,
                     help='Max number of cores to engage simultaneously. [default: 4]')
 parser.add_argument('--mode', type=str, choices=['uniqueness', 'perfect_db', 'unknown_sample', 'perfect_db_range'],
@@ -131,7 +134,6 @@ rule target:
         fasta_dir=args.fasta_dir,
         repeats=args.repeats,
         subsampling_fraction=args.subsampling_fraction,
-        nb_range_steps=args.nb_range_steps,
         scrambled=args.scrambled,
         min_mw=args.dynamic_range[0], max_mw=args.dynamic_range[1],
         min_charge=args.min_charge, ph=args.ph,
