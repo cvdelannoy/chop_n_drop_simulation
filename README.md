@@ -1,5 +1,7 @@
 # Chop-n-drop: <i>in silico</i> assessment of a novel single-molecule protein fingerprinting method employing fragmentation and nanopore detection
 
+[![DOI](https://zenodo.org/badge/371317982.svg)](https://zenodo.org/badge/latestdoi/371317982)
+
 Chop-n-drop is a concept single-molecule protein fingerprinting approach utilizing a proteasome-nanopore construct 
 [[1]](#1). In short, proteins are processed and cleaved by a 
 proteasome engineered to cleave at certain motifs, after which the molecular weight of the fragments is estimated from
