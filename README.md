@@ -78,6 +78,9 @@ python run_sim.py \
     --catch-rate 0.9 \
     --efficiency 0.9
 ```
+# Experimental data
+We also demonstrated experimentally that FraC pores can discern a 4Da difference in protein weights. Data and analysis
+script for this experiment are found [here](experimental/README.md).
 
 # References
 <a id="1">[1]</a> Shengli Zhang, Gang Huang, Roderick Versloot, Bart Marlon Herwig, Paulo Cesar Telles de Souza, Siewert-Jan Marrink, 
