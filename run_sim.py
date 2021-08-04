@@ -37,10 +37,10 @@ parser.add_argument('--specificity', type=float, default=1.0,
                     help='Cleaving specificity of enzyme, 1 - the probability of cleaving at a random position [default: 1.0]')
 
 # --- pore properties ---
-parser.add_argument('--dynamic-range', type=float, nargs=2, default=[500.0, 2000.0],
+parser.add_argument('--dynamic-range', type=float, nargs=2, default=[500.0, 1600.0],
                     help='Lower and upper limit between which resolution is valid. Below lower limit,'
                          'particle is not registered, above higher limit it is registered at maximum weight.'
-                         '[default: 500 2000]')
+                         '[default: 500 1600]')
 parser.add_argument('--min-charge', type=float, default=-100,
                     help='Minimum charge in units at which fragments are still passing the pore. [default: -100]')
 

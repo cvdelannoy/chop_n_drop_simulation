@@ -1,4 +1,6 @@
 # Demonstration of 4Da weight resolution (experimental data)
+Scripts and data provided by Florian Lucas
+
 Here we experimentally demonstrate that a heptameric FraC pore can discern 
 protein weights with a resolution of 4Da. Data and analysis scripts for the
 reproduction of supplementary image XXX or our paper are included in this

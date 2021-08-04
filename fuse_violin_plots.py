@@ -39,7 +39,7 @@ for it, (param_name, csv_fn) in enumerate(zip(args.param_names, args.in_csv)):
     #               errwidth=1,
     #               ci=None,
     #               join=True, data=cdf)
-    sns.stripplot(x='param', y='acc', color='black', size=2,data=cdf)
+    sns.stripplot(x='param', y='acc', color='black', size=2, jitter=False, data=cdf)
     ax.set_xlabel(param_name)
     if it == 0:
         plt.ylabel('Accuracy (%)')
